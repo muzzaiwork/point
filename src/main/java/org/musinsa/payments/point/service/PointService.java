@@ -3,6 +3,7 @@ package org.musinsa.payments.point.service;
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.domain.Point;
+import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.domain.PointUsage;
 import org.musinsa.payments.point.domain.PointUsageDetail;
 import org.musinsa.payments.point.domain.User;
@@ -45,11 +46,12 @@ public class PointService {
      * @param userId 사용자 ID
      * @param amount 적립 금액
      * @param isManual 수기 지급 여부
+     * @param typeStr 포인트 타입 (FREE, PAID)
      * @param expiryDays 만료일 수 (기본값 365일)
      * @return 생성된 적립 포인트의 고유 키
      */
     @Transactional
-    public String accumulate(String userId, Long amount, boolean isManual, Integer expiryDays) {
+    public String accumulate(String userId, Long amount, boolean isManual, String typeStr, Integer expiryDays) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         User user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
@@ -67,7 +69,17 @@ public class PointService {
         }
         LocalDateTime expiryDate = now.plusDays(days);
 
-        // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
+        // 3. 포인트 타입 설정
+        PointType type = PointType.FREE;
+        if (typeStr != null) {
+            try {
+                type = PointType.valueOf(typeStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "잘못된 포인트 타입입니다.");
+            }
+        }
+
+        // 4. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.addPoint(amount);
 
         Point point = Point.builder()
@@ -76,6 +88,7 @@ public class PointService {
                 .amount(amount)
                 .remainingAmount(amount)
                 .isManual(isManual)
+                .type(type)
                 .accumulationDate(now)
                 .expiryDate(expiryDate)
                 .isCancelled(false)
@@ -201,7 +214,7 @@ public class PointService {
                 // 이미 위에서 user.addPoint(cancelAmount)를 했으므로, 
                 // accumulate 내부에서도 user.addPoint를 하면 중복 차감/적립이 발생함.
                 // 따라서 만료된 경우 신규 Point만 생성해야 함.
-                createNewAccumulationForExpiredCancellation(usage.getUserId(), amountToRestore, acc.isManual());
+                createNewAccumulationForExpiredCancellation(usage.getUserId(), amountToRestore, acc.isManual(), acc.getType());
             } else {
                 // 만료되지 않은 경우 기존 적립 건의 잔액 복구
                 acc.restore(amountToRestore);
@@ -214,7 +227,7 @@ public class PointService {
     /**
      * 사용 취소 시 만료된 포인트에 대해 신규 적립 내역만 생성 (User 잔액은 이미 업데이트됨)
      */
-    private void createNewAccumulationForExpiredCancellation(String userId, Long amount, boolean isManual) {
+    private void createNewAccumulationForExpiredCancellation(String userId, Long amount, boolean isManual, PointType type) {
         LocalDateTime now = LocalDateTime.now();
         Point point = Point.builder()
                 .userId(userId)
@@ -222,6 +235,7 @@ public class PointService {
                 .amount(amount)
                 .remainingAmount(amount)
                 .isManual(isManual)
+                .type(type)
                 .accumulationDate(now)
                 .expiryDate(now.plusDays(defaultExpiryDays))
                 .isCancelled(false)

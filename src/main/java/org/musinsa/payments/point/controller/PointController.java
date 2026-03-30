@@ -32,6 +32,7 @@ public class PointController {
                 request.getUserId(),
                 request.getAmount(),
                 request.isManual(),
+                request.getType(),
                 request.getExpiryDays()
         );
         return ApiResponse.success("적립 성공", pointKey);

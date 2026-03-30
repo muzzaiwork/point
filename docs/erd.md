@@ -24,6 +24,7 @@ erDiagram
         long amount "최초 적립 금액"
         long remainingAmount "사용 가능한 잔액"
         boolean isManual "수기 지급 여부"
+        string type "포인트 타입 (FREE, PAID)"
         datetime accumulationDate "적립 일시"
         datetime expiryDate "만료 일시"
         boolean isCancelled "적립 취소 여부"
@@ -57,6 +58,7 @@ erDiagram
     - 사용자가 적립한 포인트 정보를 저장합니다.
     - `remainingAmount`를 통해 현재 사용 가능한 잔액을 관리합니다.
     - `isManual` 필드로 관리자 수기 지급 여부를 구분합니다.
+    - `type` 필드로 포인트의 성격(무료/유료)을 구분합니다.
     - `expiryDate`를 통해 만료 여부를 판단합니다.
 
 3. **POINT_USAGE (사용 내역)**

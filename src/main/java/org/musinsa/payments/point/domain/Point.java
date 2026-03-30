@@ -36,6 +36,10 @@ public class Point {
     @Column(nullable = false)
     private boolean isManual; // 수기 지급 여부
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PointType type; // 포인트 타입 (FREE, PAID)
+
     @Column(nullable = false)
     private LocalDateTime accumulationDate;
 

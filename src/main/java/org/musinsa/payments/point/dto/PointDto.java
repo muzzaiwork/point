@@ -25,6 +25,9 @@ public class PointDto {
         @Schema(description = "관리자 수기 지급 여부", example = "false")
         private boolean isManual;
 
+        @Schema(description = "포인트 타입 (FREE, PAID)", example = "FREE")
+        private String type; // FREE, PAID
+
         @Schema(description = "만료일 수 (미입력 시 기본 365일)", example = "30")
         private Integer expiryDays;
     }

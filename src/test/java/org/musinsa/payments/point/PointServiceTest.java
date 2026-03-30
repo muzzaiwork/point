@@ -1,7 +1,10 @@
 package org.musinsa.payments.point;
 
 import org.musinsa.payments.point.domain.PointAccumulation;
+import org.musinsa.payments.point.domain.User;
+import org.musinsa.payments.point.repository.UserRepository;
 import org.musinsa.payments.point.service.PointService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,19 @@ public class PointServiceTest {
 
     @Autowired
     private PointAccumulationRepository accumulationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @BeforeEach
+    public void setUp() {
+        // 테스트 사용자 생성
+        userRepository.save(User.builder()
+                .userId("user1")
+                .name("테스트유저")
+                .maxRetentionPoint(1000000L)
+                .build());
+    }
 
     @Test
     @DisplayName("포인트 적립 및 사용 예시 시나리오 테스트")

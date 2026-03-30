@@ -5,10 +5,12 @@ import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.domain.PointAccumulation;
 import org.musinsa.payments.point.domain.PointUsage;
 import org.musinsa.payments.point.domain.PointUsageDetail;
+import org.musinsa.payments.point.domain.User;
 import org.musinsa.payments.point.exception.BusinessException;
 import org.musinsa.payments.point.repository.PointAccumulationRepository;
 import org.musinsa.payments.point.repository.PointUsageDetailRepository;
 import org.musinsa.payments.point.repository.PointUsageRepository;
+import org.musinsa.payments.point.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,7 @@ public class PointService {
     private final PointAccumulationRepository accumulationRepository;
     private final PointUsageRepository usageRepository;
     private final PointUsageDetailRepository usageDetailRepository;
+    private final UserRepository userRepository;
 
     @Value("${point.config.max-accumulation:100000}")
     private Long maxAccumulationPerTime;
@@ -47,17 +50,21 @@ public class PointService {
      */
     @Transactional
     public String accumulate(String userId, Long amount, boolean isManual, Integer expiryDays) {
+        // 0. 사용자 조회
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
         // 1. 1회 적립 가능 포인트 체크 (1포인트 이상 10만포인트 이하)
         if (amount < 1 || amount > maxAccumulationPerTime) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "1회 적립 가능한 포인트 범위를 벗어났습니다.");
         }
 
-        // 2. 개인별 보유 가능 포인트 체크 (최대 보유 금액 제한)
+        // 2. 개인별 보유 가능 포인트 체크 (사용자별 설정된 최대 보유 금액 제한 참조)
         LocalDateTime now = LocalDateTime.now();
         Long currentTotal = accumulationRepository.getValidTotalRemainingAmount(userId, now);
         if (currentTotal == null) currentTotal = 0L;
         
-        if (currentTotal + amount > maxRetentionPerUser) {
+        if (currentTotal + amount > user.getMaxRetentionPoint()) {
             throw new BusinessException(ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트를 초과할 수 없습니다.");
         }
 

@@ -1,0 +1,125 @@
+# 포인트 시나리오 흐름 및 DB 상태 변화
+
+`PointServiceTest.detailedScenarioTest`에서 검증된 요구사항 예시 시나리오의 단계별 데이터 변화를 설명합니다.
+
+## 시나리오 요약
+1. **적립 A**: 1000원 적립
+2. **적립 B**: 500원 적립 (총 1500원)
+3. **사용 C**: 1200원 사용 (A: 1000, B: 200 차감 / 잔액 300원)
+4. **만료**: 적립 A 만료 처리
+5. **사용 취소 D**: 1100원 부분 취소 (총 1400원)
+    - A(1000원) 복구 시도 -> 만료됨 -> **신규 적립 E** 발생
+    - B(200원 중 100원) 복구 -> B 잔액 400원
+6. **사용 취소 추가**: 남은 100원 추가 취소 (총 1500원)
+    - B(남은 100원) 복구 -> B 잔액 500원
+
+---
+
+## 1. 초기 상태 (사용자 생성)
+
+| 테이블 | 데이터 |
+| :--- | :--- |
+| **USER** | `userId: user1`, `totalPoint: 0` |
+
+---
+
+## 2. 포인트 적립 (A, B)
+
+### [Step 1] 1000원 적립 (Key: A)
+- **USER**: `totalPoint: 1000`
+- **POINT_ACCUMULATION**:
+  | id | pointKey | amount | remainingAmount |
+  | :--- | :--- | :--- | :--- |
+  | 1 | A | 1000 | 1000 |
+
+### [Step 2] 500원 적립 (Key: B)
+- **USER**: `totalPoint: 1500`
+- **POINT_ACCUMULATION**:
+  | id | pointKey | amount | remainingAmount |
+  | :--- | :--- | :--- | :--- |
+  | 1 | A | 1000 | 1000 |
+  | 2 | B | 500 | 500 |
+
+---
+
+## 3. 포인트 사용 (C: 1200원)
+
+### [Step 3] 주문 A1234에서 1200원 사용
+- **USER**: `totalPoint: 300`
+- **POINT_ACCUMULATION**: (A 우선 소진)
+  | id | pointKey | amount | remainingAmount |
+  | :--- | :--- | :--- | :--- |
+  | 1 | A | 1000 | **0** |
+  | 2 | B | 500 | **300** |
+- **POINT_USAGE**:
+  | id | pointKey | orderNo | totalAmount |
+  | :--- | :--- | :--- | :--- |
+  | 1 | C | A1234 | 1200 |
+- **POINT_USAGE_DETAIL**: (1원 단위 추적)
+  | id | usageId | accumulationId | amount |
+  | :--- | :--- | :--- | :--- |
+  | 1 | 1 (C) | 1 (A) | 1000 |
+  | 2 | 1 (C) | 2 (B) | 200 |
+
+---
+
+## 4. 포인트 만료 (A)
+
+### [Step 4] 적립 A 만료
+- **POINT_ACCUMULATION**:
+  | id | pointKey | remainingAmount | expiryDate |
+  | :--- | :--- | :--- | :--- |
+  | 1 | A | 0 | (과거 시간) |
+
+---
+
+## 5. 사용 취소 (D: 1100원 부분 취소)
+
+### [Step 5] C 사용 건 중 1100원 취소
+- **USER**: `totalPoint: 300 + 1100 = 1400`
+- **POINT_USAGE**: `totalAmount: 1200 - 1100 = 100`, `cancelledAmount: 1100`
+- **POINT_ACCUMULATION**:
+  | id | pointKey | amount | remainingAmount | 비고 |
+  | :--- | :--- | :--- | :--- | :--- |
+  | 1 | A | 1000 | 0 | 만료됨 (복구 불가) |
+  | 2 | B | 500 | **400** | B의 사용분(200) 중 100원 복구 |
+  | 3 | **E** | 1000 | **1000** | **A 취소분 1000원 신규 적립** |
+
+---
+
+## 6. 최종 상태 (남은 100원 추가 취소)
+
+### [Step 6] C 사용 건 중 남은 100원 최종 취소
+- **USER**: `totalPoint: 1400 + 100 = 1500`
+- **POINT_USAGE**: `totalAmount: 0`, `cancelledAmount: 1200`
+- **POINT_ACCUMULATION**:
+  | id | pointKey | amount | remainingAmount | 비고 |
+  | :--- | :--- | :--- | :--- | :--- |
+  | 1 | A | 1000 | 0 | 만료 |
+  | 2 | B | 500 | **500** | B의 남은 사용분 100원 복구 |
+  | 3 | E | 1000 | 1000 | 신규 적립 건 유지 |
+
+---
+
+## 시나리오 흐름도 (Mermaid)
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Acc(A):1000
+    participant B as Acc(B):500
+    participant C as Usage(C):1200
+    participant E as Acc(E):1000
+
+    Note over U, B: [적립] A:1000, B:500 적립 (잔액 1500)
+    U->>C: 1200원 사용 (A:1000 + B:200 차감)
+    Note right of C: POINT_USAGE_DETAIL 기록
+    Note over A: [만료] A 만료일 도래
+    U->>C: 1100원 부분 취소
+    C-->>B: 100원 복구 (B 잔액 300 -> 400)
+    C-->>E: 1000원 신규 적립 (A 만료됨)
+    Note over U: 최종 잔액 1400 (B:400 + E:1000)
+    U->>C: 100원 추가 취소
+    C-->>B: 100원 복구 (B 잔액 400 -> 500)
+    Note over U: 최종 잔액 1500 (B:500 + E:1000)
+```

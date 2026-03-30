@@ -85,11 +85,13 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   }
   ```
 
-## 7. 핵심 로직 설명
+## 7. 핵심 로직 및 시나리오
 
 - **포인트 사용 순서**: `ORDER BY p.isManual DESC, p.expiryDate ASC` 쿼리를 통해 관리자 수기 지급 포인트를 최우선으로, 그 다음 만료일이 임박한 순서로 자동 차감됩니다.
 - **1원 단위 추적**: `PointUsageDetail` 테이블을 통해 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 기록합니다.
-- **만료 포인트 복구**: 사용 취소 시 `PointAccumulation.isExpired()`를 체크하여, 만료된 경우 `PointService.accumulate()`를 내부적으로 호출해 신규 적립 처리합니다.
+- **만료 포인트 복구**: 사용 취소 시 `PointAccumulation.isExpired()`를 체크하여, 만료된 경우 신규 적립 처리합니다.
+- **시나리오 상세**: 요구사항 예시 시나리오에 따른 데이터 변화는 `docs/scenario-flow.md`에서 확인할 수 있습니다.
+  - [시나리오 흐름 및 DB 상태 변화 상세보기](docs/scenario-flow.md)
 
 ## 8. 데이터베이스 설계 (ERD)
 ERD는 `docs/erd.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.

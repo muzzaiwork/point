@@ -92,6 +92,7 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 - **만료 포인트 복구**: 사용 취소 시 `Point.isExpired()`를 체크하여, 만료된 경우 신규 적립 처리합니다.
 - **시나리오 상세**: 요구사항 예시 시나리오에 따른 데이터 변화는 `docs/scenario-flow.md`에서 확인할 수 있습니다.
   - [시나리오 흐름 및 DB 상태 변화 상세보기](docs/scenario-flow.md)
+  - [시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)
 
 ## 8. 데이터베이스 설계 (ERD)
 ERD는 `docs/erd.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.

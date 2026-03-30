@@ -3,6 +3,9 @@ package org.musinsa.payments.point.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
+import org.musinsa.payments.point.common.ResultCode;
+import org.musinsa.payments.point.exception.BusinessException;
+
 import java.time.LocalDateTime;
 
 /**
@@ -47,7 +50,7 @@ public class PointAccumulation {
      */
     public void use(Long useAmount) {
         if (this.remainingAmount < useAmount) {
-            throw new IllegalArgumentException("사용 가능한 잔액이 부족합니다.");
+            throw new BusinessException(ResultCode.POINT_SHORTAGE, "사용 가능한 잔액이 부족합니다.");
         }
         this.remainingAmount -= useAmount;
     }
@@ -66,7 +69,7 @@ public class PointAccumulation {
      */
     public void cancel() {
         if (!this.amount.equals(this.remainingAmount)) {
-            throw new IllegalStateException("이미 사용된 금액이 있는 경우 적립을 취소할 수 없습니다.");
+            throw new BusinessException(ResultCode.CONFLICT, "이미 사용된 금액이 있는 경우 적립을 취소할 수 없습니다.");
         }
         this.isCancelled = true;
         this.remainingAmount = 0L;

@@ -15,6 +15,18 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     /**
+     * 비즈니스 예외 처리
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.warn("Business exception: {} - {}", e.getResultCode(), e.getMessage());
+        ResultCode resultCode = e.getResultCode();
+        return ResponseEntity
+                .status(resultCode.getHttpStatus())
+                .body(ApiResponse.error(resultCode, e.getMessage()));
+    }
+
+    /**
      * 비즈니스 로직 오류 (잘못된 인자값 등)
      */
     @ExceptionHandler(IllegalArgumentException.class)
@@ -32,15 +44,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalStateException(IllegalStateException e) {
         log.warn("Illegal state exception: {}", e.getMessage());
-        
         ResultCode resultCode = ResultCode.CONFLICT;
-        // 메시지에 따라 상세 코드 매핑 (예시)
-        if (e.getMessage().contains("잔액이 부족")) {
-            resultCode = ResultCode.POINT_SHORTAGE;
-        } else if (e.getMessage().contains("한도를 초과")) {
-            resultCode = ResultCode.LIMIT_EXCEEDED;
-        }
-
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
                 .body(ApiResponse.error(resultCode, e.getMessage()));

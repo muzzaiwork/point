@@ -4,9 +4,9 @@
 
 ```mermaid
 erDiagram
-    USER ||--o{ POINT_ACCUMULATION : "accumulates"
+    USER ||--o{ POINT : "accumulates"
     USER ||--o{ POINT_USAGE : "uses"
-    POINT_ACCUMULATION ||--o{ POINT_USAGE_DETAIL : "used_in"
+    POINT ||--o{ POINT_USAGE_DETAIL : "used_in"
     POINT_USAGE ||--|{ POINT_USAGE_DETAIL : "consists_of"
 
     USER {
@@ -17,7 +17,7 @@ erDiagram
         long totalPoint "현재 보유 총 포인트"
     }
 
-    POINT_ACCUMULATION {
+    POINT {
         long id PK
         string userId FK "사용자 ID (USER.userId 참조)"
         string pointKey UK "적립 고유 키"
@@ -41,7 +41,7 @@ erDiagram
     POINT_USAGE_DETAIL {
         long id PK
         long point_usage_id FK "POINT_USAGE 참조"
-        long point_accumulation_id FK "POINT_ACCUMULATION 참조"
+        long point_id FK "POINT 참조"
         long amount "해당 적립 건에서 사용된 금액 (1원 단위 추적)"
         datetime usageDate "기록 일시"
     }
@@ -53,7 +53,7 @@ erDiagram
     - 개인별 최대 보유 한도(`maxRetentionPoint`)와 현재 잔액(`totalPoint`)을 관리합니다.
     - **비관적 락**을 통해 동시성 제어가 필요한 핵심 레코드입니다. (상세 내용: [concurrency.md](concurrency.md))
 
-2. **POINT_ACCUMULATION (적립 내역)**
+2. **POINT (적립 내역)**
     - 사용자가 적립한 포인트 정보를 저장합니다.
     - `remainingAmount`를 통해 현재 사용 가능한 잔액을 관리합니다.
     - `isManual` 필드로 관리자 수기 지급 여부를 구분합니다.
@@ -64,5 +64,5 @@ erDiagram
     - `orderNo`를 기록하여 어떤 주문에서 사용되었는지 식별합니다.
 
 4. **POINT_USAGE_DETAIL (사용 상세 내역)**
-    - 특정 사용 건(`POINT_USAGE`)이 어떤 적립 건(`POINT_ACCUMULATION`)에서 얼마만큼 차감되었는지 1원 단위로 기록합니다.
+    - 특정 사용 건(`POINT_USAGE`)이 어떤 적립 건(`POINT`)에서 얼마만큼 차감되었는지 1원 단위로 기록합니다.
     - 이를 통해 적립-사용 간의 관계를 명확히 추적하며, 사용 취소 시 복구할 대상을 정확히 찾아낼 수 있습니다.

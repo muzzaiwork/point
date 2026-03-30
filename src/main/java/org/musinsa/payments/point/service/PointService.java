@@ -2,12 +2,12 @@ package org.musinsa.payments.point.service;
 
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ResultCode;
-import org.musinsa.payments.point.domain.PointAccumulation;
+import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointUsage;
 import org.musinsa.payments.point.domain.PointUsageDetail;
 import org.musinsa.payments.point.domain.User;
 import org.musinsa.payments.point.exception.BusinessException;
-import org.musinsa.payments.point.repository.PointAccumulationRepository;
+import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.PointUsageDetailRepository;
 import org.musinsa.payments.point.repository.PointUsageRepository;
 import org.musinsa.payments.point.repository.UserRepository;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PointService {
 
-    private final PointAccumulationRepository accumulationRepository;
+    private final PointRepository pointRepository;
     private final PointUsageRepository usageRepository;
     private final PointUsageDetailRepository usageDetailRepository;
     private final UserRepository userRepository;
@@ -70,7 +70,7 @@ public class PointService {
         // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.addPoint(amount);
 
-        PointAccumulation accumulation = PointAccumulation.builder()
+        Point point = Point.builder()
                 .userId(userId)
                 .pointKey(UUID.randomUUID().toString())
                 .amount(amount)
@@ -81,8 +81,8 @@ public class PointService {
                 .isCancelled(false)
                 .build();
 
-        accumulationRepository.save(accumulation);
-        return accumulation.getPointKey();
+        pointRepository.save(point);
+        return point.getPointKey();
     }
 
     /**
@@ -91,17 +91,17 @@ public class PointService {
      */
     @Transactional
     public void cancelAccumulation(String pointKey) {
-        PointAccumulation accumulation = accumulationRepository.findByPointKey(pointKey)
+        Point point = pointRepository.findByPointKey(pointKey)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "적립 내역을 찾을 수 없습니다."));
         
         // 사용자 잔액 차감을 위해 사용자 조회 (락 획득)
-        User user = userRepository.findByUserIdWithLock(accumulation.getUserId())
+        User user = userRepository.findByUserIdWithLock(point.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        long amountToCancel = accumulation.getRemainingAmount();
+        long amountToCancel = point.getRemainingAmount();
         
         // 사용된 금액이 있는 경우 취소 불가 로직은 엔티티 내부에서 체크
-        accumulation.cancel();
+        point.cancel();
         
         // 사용자 잔액 차감
         user.usePoint(amountToCancel);
@@ -126,11 +126,11 @@ public class PointService {
         LocalDateTime now = LocalDateTime.now();
         
         // 2. 사용 가능한 상세 적립 내역 조회 (수기 지급 우선, 만료일 임박 순)
-        List<PointAccumulation> availablePoints = accumulationRepository.findAvailablePoints(userId, now);
+        List<Point> availablePoints = pointRepository.findAvailablePoints(userId, now);
         
-        long totalAvailable = availablePoints.stream().mapToLong(PointAccumulation::getRemainingAmount).sum();
+        long totalAvailable = availablePoints.stream().mapToLong(Point::getRemainingAmount).sum();
         if (totalAvailable < useAmount) {
-            // User 테이블의 totalPoint와 PointAccumulation의 합계가 맞지 않는 상황 (데이터 정합성 이슈 대비)
+            // User 테이블의 totalPoint와 Point의 합계가 맞지 않는 상황 (데이터 정합성 이슈 대비)
             throw new BusinessException(ResultCode.POINT_SHORTAGE, "사용 가능한 포인트 잔액이 부족합니다.");
         }
 
@@ -147,7 +147,7 @@ public class PointService {
 
         // 4. 포인트 차감 및 상세 내역 기록 (1원 단위 추적 가능)
         long remainingToUse = useAmount;
-        for (PointAccumulation acc : availablePoints) {
+        for (Point acc : availablePoints) {
             if (remainingToUse <= 0) break;
 
             long canUseFromThis = Math.min(acc.getRemainingAmount(), remainingToUse);
@@ -156,7 +156,7 @@ public class PointService {
 
             PointUsageDetail detail = PointUsageDetail.builder()
                     .pointUsage(usage)
-                    .pointAccumulation(acc)
+                    .point(acc)
                     .amount(canUseFromThis)
                     .usageDate(now)
                     .build();
@@ -200,13 +200,13 @@ public class PointService {
             if (remainingToCancel <= 0) break;
 
             long amountToRestore = Math.min(detail.getAmount(), remainingToCancel);
-            PointAccumulation acc = detail.getPointAccumulation();
+            Point acc = detail.getPoint();
             
             if (acc.isExpired(now)) {
                 // 사용 취소 시점에 이미 만료된 포인트라면 신규 적립 처리
                 // 이미 위에서 user.addPoint(cancelAmount)를 했으므로, 
                 // accumulate 내부에서도 user.addPoint를 하면 중복 차감/적립이 발생함.
-                // 따라서 만료된 경우 신규 PointAccumulation만 생성해야 함.
+                // 따라서 만료된 경우 신규 Point만 생성해야 함.
                 createNewAccumulationForExpiredCancellation(usage.getUserId(), amountToRestore, acc.isManual());
             } else {
                 // 만료되지 않은 경우 기존 적립 건의 잔액 복구
@@ -222,7 +222,7 @@ public class PointService {
      */
     private void createNewAccumulationForExpiredCancellation(String userId, Long amount, boolean isManual) {
         LocalDateTime now = LocalDateTime.now();
-        PointAccumulation accumulation = PointAccumulation.builder()
+        Point point = Point.builder()
                 .userId(userId)
                 .pointKey(UUID.randomUUID().toString())
                 .amount(amount)
@@ -232,6 +232,6 @@ public class PointService {
                 .expiryDate(now.plusDays(defaultExpiryDays))
                 .isCancelled(false)
                 .build();
-        accumulationRepository.save(accumulation);
+        pointRepository.save(point);
     }
 }

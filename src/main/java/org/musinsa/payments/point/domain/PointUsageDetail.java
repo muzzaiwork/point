@@ -24,7 +24,7 @@ public class PointUsageDetail {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "point_accumulation_id")
-    private PointAccumulation pointAccumulation;
+    private Point point;
 
     @Column(nullable = false)
     private Long amount; // 해당 적립 건에서 사용한 금액

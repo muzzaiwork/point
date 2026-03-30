@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class PointAccumulation {
+public class Point {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

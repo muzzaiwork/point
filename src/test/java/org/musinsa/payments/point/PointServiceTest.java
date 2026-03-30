@@ -1,6 +1,6 @@
 package org.musinsa.payments.point;
 
-import org.musinsa.payments.point.domain.PointAccumulation;
+import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.User;
 import org.musinsa.payments.point.repository.UserRepository;
 import org.musinsa.payments.point.service.PointService;
@@ -10,10 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
-import org.musinsa.payments.point.repository.PointAccumulationRepository;
+import org.musinsa.payments.point.repository.PointRepository;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,7 +24,7 @@ public class PointServiceTest {
     private PointService pointService;
 
     @Autowired
-    private PointAccumulationRepository accumulationRepository;
+    private PointRepository pointRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -54,17 +53,17 @@ public class PointServiceTest {
         String pointKeyC = pointService.use("user1", "A1234", 1200L);
         
         // 상세 검증 (A에서 1000, B에서 200 사용됨)
-        PointAccumulation accA = accumulationRepository.findByPointKey(pointKeyA).get();
-        PointAccumulation accB = accumulationRepository.findByPointKey(pointKeyB).get();
+        Point accA = pointRepository.findByPointKey(pointKeyA).get();
+        Point accB = pointRepository.findByPointKey(pointKeyB).get();
         assertThat(accA.getRemainingAmount()).isEqualTo(0L);
         assertThat(accB.getRemainingAmount()).isEqualTo(300L);
         
         // 4. A의 적립이 만료되었다.
         accA.setExpiryDate(LocalDateTime.now().minusDays(1));
-        accumulationRepository.saveAndFlush(accA);
+        pointRepository.saveAndFlush(accA);
         
         // 만료 데이터 상태 확인 (테스트 코드에서 명시적으로 보여줌)
-        PointAccumulation expiredAccA = accumulationRepository.findByPointKey(pointKeyA).get();
+        Point expiredAccA = pointRepository.findByPointKey(pointKeyA).get();
         assertThat(expiredAccA.getExpiryDate()).isBefore(LocalDateTime.now());
         assertThat(expiredAccA.isExpired(LocalDateTime.now())).isTrue();
         
@@ -77,7 +76,7 @@ public class PointServiceTest {
         // A(1000) -> 만료됨 -> 신규 적립 (E)
         // B(200 중 100) -> 복구됨 (300 -> 400)
         
-        PointAccumulation updatedAccB = accumulationRepository.findByPointKey(pointKeyB).get();
+        Point updatedAccB = pointRepository.findByPointKey(pointKeyB).get();
         assertThat(updatedAccB.getRemainingAmount()).isEqualTo(400L);
         
         // A는 이미 만료일이 지났기 때문에 pointKey E 로 1000원이 신규적립 되어야 한다.
@@ -86,7 +85,7 @@ public class PointServiceTest {
         assertThat(user.getTotalPoint()).isEqualTo(1400L); // 300(기존) + 1100(취소분) = 1400
         
         // 신규 적립된 건(E)이 있는지 확인 (사용 가능한 포인트 목록에서 1000원짜리 확인)
-        Long totalRemainingFromAcc = accumulationRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
+        Long totalRemainingFromAcc = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
         assertThat(totalRemainingFromAcc).isEqualTo(1400L); // 400(B) + 1000(E)
         
         // C는 이제 1200원 사용금액중 100원을 부분취소 할 수 있다. (기존 1100원 취소했으므로 남은건 100원)
@@ -95,7 +94,7 @@ public class PointServiceTest {
         User finalUser = userRepository.findByUserId("user1").get();
         assertThat(finalUser.getTotalPoint()).isEqualTo(1500L); // 1400 + 100
         
-        Long finalTotalRemaining = accumulationRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
+        Long finalTotalRemaining = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
         assertThat(finalTotalRemaining).isEqualTo(1500L); // B(400 + 100) + E(1000)
     }
 }

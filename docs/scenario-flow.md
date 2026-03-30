@@ -25,38 +25,38 @@
 
 ## 2. 포인트 적립 (A, B)
 
-### [Step 1] 1000원 적립 (Key 별칭: A)
+### [Step 1] 1000원 적립 (별칭: A)
 - **USER**: `totalPoint: 1000`
 - **POINT_ACCUMULATION**:
-  | id | pointKey (UUID) | amount | remainingAmount | expiryDate |
+  | id (PK) | pointKey (UUID) | amount | remainingAmount | expiryDate |
   | :--- | :--- | :--- | :--- | :--- |
-  | 1 | `acc-uuid-A` | 1000 | 1000 | `2027-03-30T21:11:00` |
+  | 1 | `8da1...` | 1000 | 1000 | `2027-03-30T21:11:00` |
 
-### [Step 2] 500원 적립 (Key 별칭: B)
+### [Step 2] 500원 적립 (별칭: B)
 - **USER**: `totalPoint: 1500`
 - **POINT_ACCUMULATION**:
-  | id | pointKey (UUID) | amount | remainingAmount | expiryDate |
+  | id (PK) | pointKey (UUID) | amount | remainingAmount | expiryDate |
   | :--- | :--- | :--- | :--- | :--- |
-  | 1 | `acc-uuid-A` | 1000 | 1000 | `2027-03-30T21:11:00` |
-  | 2 | `acc-uuid-B` | 500 | 500 | `2027-03-30T21:11:00` |
+  | 1 | `8da1...` | 1000 | 1000 | `2027-03-30T21:11:00` |
+  | 2 | `3f2b...` | 500 | 500 | `2027-03-30T21:11:00` |
 
 ---
 
-## 3. 포인트 사용 (C: 1200원)
+## 3. 포인트 사용 (별칭: C, 1200원)
 
-### [Step 3] 주문 A1234에서 1200원 사용 (Key 별칭: C)
+### [Step 3] 주문 A1234에서 1200원 사용
 - **USER**: `totalPoint: 300`
 - **POINT_ACCUMULATION**: (A 우선 소진)
   | id | pointKey | amount | remainingAmount | expiryDate |
   | :--- | :--- | :--- | :--- | :--- |
-  | 1 | `acc-uuid-A` | 1000 | **0** | `2027-03-30T21:11:00` |
-  | 2 | `acc-uuid-B` | 500 | **300** | `2027-03-30T21:11:00` |
+  | 1 | `8da1...` | 1000 | **0** | `2027-03-30T21:11:00` |
+  | 2 | `3f2b...` | 500 | **300** | `2027-03-30T21:11:00` |
 - **POINT_USAGE**:
-  | id | pointKey (UUID) | orderNo | totalAmount | usageDate |
+  | id (PK) | pointKey (UUID) | orderNo | totalAmount | usageDate |
   | :--- | :--- | :--- | :--- | :--- |
-  | 1 | `use-uuid-C` | A1234 | 1200 | `2026-03-30T21:15:00` |
+  | 1 | `9e5d...` | A1234 | 1200 | `2026-03-30T21:15:00` |
 - **POINT_USAGE_DETAIL**: (1원 단위 추적)
-  | id | usageId | accumulationId | amount |
+  | id (PK) | usageId (FK) | accumulationId (FK) | amount |
   | :--- | :--- | :--- | :--- |
   | 1 | 1 (C) | 1 (A) | 1000 |
   | 2 | 1 (C) | 2 (B) | 200 |
@@ -69,21 +69,21 @@
 - **POINT_ACCUMULATION**:
   | id | pointKey | remainingAmount | expiryDate |
   | :--- | :--- | :--- | :--- |
-  | 1 | `acc-uuid-A` | 0 | **`2026-03-29T21:11:00` (만료)** |
+  | 1 | `8da1...` | 0 | **`2026-03-29T21:11:00` (만료)** |
 
 ---
 
-## 5. 사용 취소 (D: 1100원 부분 취소)
+## 5. 사용 취소 (별칭: D, 1100원 부분 취소)
 
-### [Step 5] C 사용 건 중 1100원 취소 (취소 내역 Key 별칭: D)
+### [Step 5] C 사용 건 중 1100원 취소
 - **USER**: `totalPoint: 300 + 1100 = 1400`
 - **POINT_USAGE**: `totalAmount: 1200 - 1100 = 100`, `cancelledAmount: 1100`
 - **POINT_ACCUMULATION**:
   | id | pointKey | amount | remainingAmount | expiryDate | 비고 |
   | :--- | :--- | :--- | :--- | :--- | :--- |
-  | 1 | `acc-uuid-A` | 1000 | 0 | `2026-03-29...` | 만료됨 (복구 불가) |
-  | 2 | `acc-uuid-B` | 500 | **400** | `2027-03-30...` | B의 사용분(200) 중 100원 복구 |
-  | 3 | `acc-uuid-E` | 1000 | **1000** | `2027-03-30...` | **A 취소분 1000원 신규 적립 (Key: E)** |
+  | 1 | `8da1...` | 1000 | 0 | `2026-03-29...` | 만료됨 (복구 불가) |
+  | 2 | `3f2b...` | 500 | **400** | `2027-03-30...` | B의 사용분(200) 중 100원 복구 |
+  | 3 | `5c7a...` | 1000 | **1000** | `2027-03-30...` | **A 취소분 1000원 신규 적립 (별칭: E)** |
 
 ---
 
@@ -95,9 +95,9 @@
 - **POINT_ACCUMULATION**:
   | id | pointKey | amount | remainingAmount | expiryDate | 비고 |
   | :--- | :--- | :--- | :--- | :--- | :--- |
-  | 1 | `acc-uuid-A` | 1000 | 0 | `2026-03-29...` | 만료 |
-  | 2 | `acc-uuid-B` | 500 | **500** | `2027-03-30...` | B의 남은 사용분 100원 복구 |
-  | 3 | `acc-uuid-E` | 1000 | 1000 | `2027-03-30...` | 신규 적립 건 유지 |
+  | 1 | `8da1...` | 1000 | 0 | `2026-03-29...` | 만료 |
+  | 2 | `3f2b...` | 500 | **500** | `2027-03-30...` | B의 남은 사용분 100원 복구 |
+  | 3 | `5c7a...` | 1000 | 1000 | `2027-03-30...` | 신규 적립 건 유지 |
 
 ---
 

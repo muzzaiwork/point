@@ -93,9 +93,10 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ## 8. 데이터베이스 설계 (ERD)
 ERD는 `docs/erd.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
-(파일 경로: [erd.md](docs/erd.md))
+- [ERD 상세 보기 (Mermaid)](docs/erd.md)
 
 또한, 이미지 형태의 ERD는 `src/main/resources/erd.png`에 위치합니다.
+- [ERD 이미지 (PNG)](src/main/resources/erd.png)
 
 ## 9. 아키텍처 구성
 AWS 기반 아키텍처 구성도는 `src/main/resources/architecture.png`에 위치합니다.

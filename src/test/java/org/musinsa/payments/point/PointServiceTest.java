@@ -60,7 +60,7 @@ public class PointServiceTest {
         assertThat(accB.getRemainingAmount()).isEqualTo(300L);
         
         // 4. A의 적립이 만료되었다.
-        accA.expireForTest();
+        accA.setExpiryDate(LocalDateTime.now().minusDays(1));
         accumulationRepository.saveAndFlush(accA);
         
         // 만료 데이터 상태 확인 (테스트 코드에서 명시적으로 보여줌)

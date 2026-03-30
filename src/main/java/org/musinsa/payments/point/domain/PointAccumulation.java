@@ -76,10 +76,11 @@ public class PointAccumulation {
     }
 
     /**
-     * 테스트를 위해 만료일을 과거로 설정한다.
+     * 만료일을 설정한다.
+     * @param expiryDate 새로운 만료일
      */
-    public void expireForTest() {
-        this.expiryDate = LocalDateTime.now().minusDays(1);
+    public void setExpiryDate(LocalDateTime expiryDate) {
+        this.expiryDate = expiryDate;
     }
 
     /**

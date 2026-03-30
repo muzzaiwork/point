@@ -95,12 +95,6 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 ERD는 `docs/erd.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
 - [ERD 상세 보기 (Mermaid)](docs/erd.md)
 
-또한, 이미지 형태의 ERD는 `src/main/resources/erd.png`에 위치합니다.
-- [ERD 이미지 (PNG)](src/main/resources/erd.png)
-
 ## 9. 아키텍처 구성
-AWS 기반 아키텍처 구성도는 `src/main/resources/architecture.png`에 위치합니다.
-- **RDBMS**: Aurora MySQL (Multi-AZ)
-- **Cache**: ElastiCache (Redis) - 빈번한 잔액 조회 성능 향상
-- **Load Balancer**: Application Load Balancer
-- **Computing**: Amazon ECS (Fargate)
+AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
+- [AWS 아키텍처 상세 보기 (Mermaid)](docs/architecture.md)

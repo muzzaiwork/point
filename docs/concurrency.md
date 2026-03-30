@@ -40,63 +40,21 @@ sequenceDiagram
     Note over DB: 락 해제
 ```
 
-### 💻 코드 예시 (Java / Spring Data JPA)
+### 💻 구현 코드 (Java / Spring Data JPA)
 
-#### 1. Entity (User.java)
-```java
-@Entity
-public class User {
-    @Id
-    private Long id;
-    private String userId;
-    private Long totalPoint;
-    private Long maxRetentionPoint;
+실제 프로젝트에서 비관적 락을 구현한 코드는 아래 링크에서 확인할 수 있습니다.
 
-    public void addPoint(Long amount) {
-        if (this.totalPoint + amount > this.maxRetentionPoint) {
-            throw new BusinessException(ResultCode.LIMIT_EXCEEDED);
-        }
-        this.totalPoint += amount;
-    }
+#### 1. Entity ([User.java](../src/main/java/org/musinsa/payments/point/domain/User.java))
+- `addPoint`, `usePoint` 메서드를 통해 잔액 변경 및 한도 체크 로직이 캡슐화되어 있습니다.
+- [GitHub 소스 보기](https://github.com/muzzaiwork/point/blob/main/src/main/java/org/musinsa/payments/point/domain/User.java)
 
-    public void usePoint(Long amount) {
-        if (this.totalPoint < amount) {
-            throw new BusinessException(ResultCode.POINT_SHORTAGE);
-        }
-        this.totalPoint -= amount;
-    }
-}
-```
+#### 2. Repository ([UserRepository.java](../src/main/java/org/musinsa/payments/point/repository/UserRepository.java))
+- `@Lock(LockModeType.PESSIMISTIC_WRITE)` 어노테이션을 사용하여 `SELECT ... FOR UPDATE` 쿼리를 실행합니다.
+- [GitHub 소스 보기](https://github.com/muzzaiwork/point/blob/main/src/main/java/org/musinsa/payments/point/repository/UserRepository.java)
 
-#### 2. Repository (UserRepository.java)
-```java
-public interface UserRepository extends JpaRepository<User, Long> {
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select u from User u where u.userId = :userId")
-    Optional<User> findByUserIdWithLock(@Param("userId") String userId);
-}
-```
-
-#### 3. Service (PointService.java)
-```java
-@Service
-public class PointService {
-    private final UserRepository userRepository;
-
-    @Transactional
-    public String accumulate(String userId, Long amount, ...) {
-        // 1. SELECT ... FOR UPDATE 실행 (DB 수준 락 획득)
-        User user = userRepository.findByUserIdWithLock(userId)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND));
-
-        // 2. 비즈니스 로직 수행 (잔액 검증 및 추가)
-        user.addPoint(amount);
-
-        // 3. 메서드 종료 시 트랜잭션 커밋과 함께 DB 락 해제
-        return ...;
-    }
-}
-```
+#### 3. Service ([PointService.java](../src/main/java/org/musinsa/payments/point/service/PointService.java))
+- `accumulate`, `use`, `cancelUsage` 등 주요 비즈니스 메서드 시작 시점에 `findByUserIdWithLock`을 호출하여 락을 획득합니다.
+- [GitHub 소스 보기](https://github.com/muzzaiwork/point/blob/main/src/main/java/org/musinsa/payments/point/service/PointService.java)
 
 ### ✨ 성과 및 결과 (Result)
 - **완벽한 데이터 정합성**: 동시 요청 시에도 사용자별 잔액 및 한도 검증이 정확하게 이루어짐.

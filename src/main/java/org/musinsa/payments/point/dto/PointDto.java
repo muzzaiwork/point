@@ -1,9 +1,8 @@
 package org.musinsa.payments.point.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 /**
  * 포인트 관련 데이터 전달 객체(DTO)
@@ -13,7 +12,8 @@ public class PointDto {
     /**
      * 포인트 적립 요청 객체
      */
-    @Getter @Setter @NoArgsConstructor
+    @Data
+    @NoArgsConstructor
     @Schema(description = "포인트 적립 요청")
     public static class AccumulateRequest {
         @Schema(description = "사용자 ID", example = "user1")
@@ -32,7 +32,8 @@ public class PointDto {
     /**
      * 포인트 사용 요청 객체
      */
-    @Getter @Setter @NoArgsConstructor
+    @Data
+    @NoArgsConstructor
     @Schema(description = "포인트 사용 요청")
     public static class UseRequest {
         @Schema(description = "사용자 ID", example = "user1")
@@ -48,7 +49,8 @@ public class PointDto {
     /**
      * 포인트 사용 취소 요청 객체
      */
-    @Getter @Setter @NoArgsConstructor
+    @Data
+    @NoArgsConstructor
     @Schema(description = "포인트 사용 취소 요청")
     public static class CancelUsageRequest {
         @Schema(description = "취소 금액 (부분 취소 가능)", example = "100")
@@ -59,7 +61,7 @@ public class PointDto {
      * 공통 응답 객체
      * @param <T> 데이터 타입
      */
-    @Getter @Setter
+    @Data
     @Schema(description = "공통 응답")
     public static class Response<T> {
         @Schema(description = "응답 메시지", example = "성공")
@@ -71,6 +73,9 @@ public class PointDto {
         public Response(String message, T data) {
             this.message = message;
             this.data = data;
+        }
+
+        public Response() {
         }
     }
 }

@@ -165,6 +165,7 @@ public class PointService {
                     .pointUsage(usage)
                     .point(acc)
                     .amount(canUseFromThis)
+                    .cancelledAmount(0L)
                     .usageDate(now)
                     .build();
             usageDetailRepository.save(detail);
@@ -206,20 +207,19 @@ public class PointService {
         for (PointUsageDetail detail : details) {
             if (remainingToCancel <= 0) break;
 
-            long amountToRestore = Math.min(detail.getAmount(), remainingToCancel);
+            long restorableInThisDetail = detail.getAmount() - detail.getCancelledAmount();
+            if (restorableInThisDetail <= 0) continue;
+
+            long amountToRestore = Math.min(restorableInThisDetail, remainingToCancel);
             Point acc = detail.getPoint();
             
             if (acc.isExpired(now)) {
-                // 사용 취소 시점에 이미 만료된 포인트라면 신규 적립 처리
-                // 이미 위에서 user.addPoint(cancelAmount)를 했으므로, 
-                // accumulate 내부에서도 user.addPoint를 하면 중복 차감/적립이 발생함.
-                // 따라서 만료된 경우 신규 Point만 생성해야 함.
                 createNewAccumulationForExpiredCancellation(usage.getUserId(), amountToRestore, acc.isManual(), acc.getType());
             } else {
-                // 만료되지 않은 경우 기존 적립 건의 잔액 복구
                 acc.restore(amountToRestore);
             }
             
+            detail.addCancelledAmount(amountToRestore);
             remainingToCancel -= amountToRestore;
         }
     }

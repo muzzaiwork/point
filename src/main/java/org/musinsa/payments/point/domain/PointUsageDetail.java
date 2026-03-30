@@ -30,5 +30,16 @@ public class PointUsageDetail {
     private Long amount; // 해당 적립 건에서 사용한 금액
 
     @Column(nullable = false)
+    private Long cancelledAmount; // 해당 상세 내역에서 취소된 금액
+
+    @Column(nullable = false)
     private LocalDateTime usageDate;
+
+    /**
+     * 상세 내역의 취소 금액을 추가한다.
+     * @param amount 추가할 취소 금액
+     */
+    public void addCancelledAmount(Long amount) {
+        this.cancelledAmount += amount;
+    }
 }

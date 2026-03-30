@@ -56,26 +56,4 @@ public class PointDto {
         @Schema(description = "취소 금액 (부분 취소 가능)", example = "100")
         private Long amount;
     }
-
-    /**
-     * 공통 응답 객체
-     * @param <T> 데이터 타입
-     */
-    @Data
-    @Schema(description = "공통 응답")
-    public static class Response<T> {
-        @Schema(description = "응답 메시지", example = "성공")
-        private String message;
-
-        @Schema(description = "응답 데이터")
-        private T data;
-
-        public Response(String message, T data) {
-            this.message = message;
-            this.data = data;
-        }
-
-        public Response() {
-        }
-    }
 }

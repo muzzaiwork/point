@@ -49,9 +49,6 @@ public class Point {
      * @param useAmount 사용 금액
      */
     public void use(Long useAmount) {
-        if (this.remainingAmount < useAmount) {
-            throw new BusinessException(ResultCode.POINT_SHORTAGE, "사용 가능한 잔액이 부족합니다.");
-        }
         this.remainingAmount -= useAmount;
     }
 

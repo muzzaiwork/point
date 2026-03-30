@@ -128,12 +128,6 @@ public class PointService {
         // 2. 사용 가능한 상세 적립 내역 조회 (수기 지급 우선, 만료일 임박 순)
         List<Point> availablePoints = pointRepository.findAvailablePoints(userId, now);
         
-        long totalAvailable = availablePoints.stream().mapToLong(Point::getRemainingAmount).sum();
-        if (totalAvailable < useAmount) {
-            // User 테이블의 totalPoint와 Point의 합계가 맞지 않는 상황 (데이터 정합성 이슈 대비)
-            throw new BusinessException(ResultCode.POINT_SHORTAGE, "사용 가능한 포인트 잔액이 부족합니다.");
-        }
-
         // 3. PointUsage 기록
         PointUsage usage = PointUsage.builder()
                 .userId(userId)

@@ -63,6 +63,11 @@ public class PointServiceTest {
         accA.expireForTest();
         accumulationRepository.saveAndFlush(accA);
         
+        // 만료 데이터 상태 확인 (테스트 코드에서 명시적으로 보여줌)
+        PointAccumulation expiredAccA = accumulationRepository.findByPointKey(pointKeyA).get();
+        assertThat(expiredAccA.getExpiryDate()).isBefore(LocalDateTime.now());
+        assertThat(expiredAccA.isExpired(LocalDateTime.now())).isTrue();
+        
         // 5. C의 사용금액 1200원 중 1100원을 부분 사용취소 한다 (총 잔액 300 -> 1400 원)
         // pointKey : D 로 할당 (취소 내역 자체는 D, A의 만료로 인한 신규 적립은 E)
         pointService.cancelUsage(pointKeyC, 1100L);

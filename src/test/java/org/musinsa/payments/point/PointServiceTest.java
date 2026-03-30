@@ -37,6 +37,7 @@ public class PointServiceTest {
                 .userId("user1")
                 .name("테스트유저")
                 .maxRetentionPoint(1000000L)
+                .totalPoint(0L)
                 .build());
     }
 
@@ -70,7 +71,10 @@ public class PointServiceTest {
         assertThat(updatedAccB.getRemainingAmount()).isEqualTo(400L);
         
         // A는 이미 만료일이 지났기 때문에 신규적립 되어야 한다. (사용자 잔액 총합으로 검증)
-        Long totalRemaining = accumulationRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
-        assertThat(totalRemaining).isEqualTo(1400L); // 400(B) + 1000(신규)
+        User user = userRepository.findByUserId("user1").get();
+        assertThat(user.getTotalPoint()).isEqualTo(1400L);
+        
+        Long totalRemainingFromAcc = accumulationRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
+        assertThat(totalRemainingFromAcc).isEqualTo(1400L); // 400(B) + 1000(신규)
     }
 }

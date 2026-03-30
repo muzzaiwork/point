@@ -28,8 +28,24 @@ public class PointUsage {
     private String pointKey; // 사용 고유 키
 
     @Column(nullable = false)
-    private Long totalAmount; // 총 사용 금액
+    private Long totalAmount; // 총 사용 금액 (취소 시 차감됨)
+
+    @Column(nullable = false)
+    private Long cancelledAmount; // 취소된 금액
 
     @Column(nullable = false)
     private LocalDateTime usageDate;
+
+    /**
+     * 사용 취소 시 총 사용 금액에서 차감한다.
+     * @param cancelAmount 취소할 금액
+     */
+    public void cancel(Long cancelAmount) {
+        if (this.totalAmount < cancelAmount) {
+            throw new org.musinsa.payments.point.exception.BusinessException(
+                org.musinsa.payments.point.common.ResultCode.BAD_REQUEST, "취소 금액이 사용 금액을 초과할 수 없습니다.");
+        }
+        this.totalAmount -= cancelAmount;
+        this.cancelledAmount += cancelAmount;
+    }
 }

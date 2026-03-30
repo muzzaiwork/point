@@ -140,6 +140,7 @@ public class PointService {
                 .orderNo(orderNo)
                 .pointKey(UUID.randomUUID().toString())
                 .totalAmount(useAmount)
+                .cancelledAmount(0L)
                 .usageDate(now)
                 .build();
         usageRepository.save(usage);
@@ -183,7 +184,10 @@ public class PointService {
         User user = userRepository.findByUserIdWithLock(usage.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        // 1. 사용자 잔액 복구 (한도 체크 포함)
+        // 1. 사용 내역 업데이트 (금액 차감 및 취소 금액 누적)
+        usage.cancel(cancelAmount);
+
+        // 2. 사용자 잔액 복구 (한도 체크 포함)
         user.addPoint(cancelAmount);
 
         List<PointUsageDetail> details = usageDetailRepository.findByPointUsage(usage);

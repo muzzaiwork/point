@@ -3,11 +3,13 @@ package org.musinsa.payments.point.service;
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.domain.Point;
+import org.musinsa.payments.point.domain.PointKeySequence;
 import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.domain.PointUsage;
 import org.musinsa.payments.point.domain.PointUsageDetail;
 import org.musinsa.payments.point.domain.User;
 import org.musinsa.payments.point.exception.BusinessException;
+import org.musinsa.payments.point.repository.PointKeySequenceRepository;
 import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.PointUsageDetailRepository;
 import org.musinsa.payments.point.repository.PointUsageRepository;
@@ -16,9 +18,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 포인트 비즈니스 로직을 처리하는 서비스 클래스
@@ -31,9 +34,7 @@ public class PointService {
     private final PointUsageRepository usageRepository;
     private final PointUsageDetailRepository usageDetailRepository;
     private final UserRepository userRepository;
-
-    @Value("${point.config.default-expiry-days:365}")
-    private Integer defaultExpiryDays;
+    private final PointKeySequenceRepository sequenceRepository;
 
     /**
      * 포인트를 적립한다.
@@ -74,7 +75,7 @@ public class PointService {
 
         Point point = Point.builder()
                 .userId(userId)
-                .pointKey(UUID.randomUUID().toString())
+                .pointKey(generatePointKey())
                 .amount(amount)
                 .remainingAmount(amount)
                 .isManual(isManual)
@@ -135,7 +136,7 @@ public class PointService {
         PointUsage usage = PointUsage.builder()
                 .userId(userId)
                 .orderNo(orderNo)
-                .pointKey(UUID.randomUUID().toString())
+                .pointKey(generatePointKey())
                 .totalAmount(useAmount)
                 .cancelledAmount(0L)
                 .usageDate(now)
@@ -224,7 +225,7 @@ public class PointService {
         
         Point point = Point.builder()
                 .userId(userId)
-                .pointKey(UUID.randomUUID().toString())
+                .pointKey(generatePointKey())
                 .amount(amount)
                 .remainingAmount(amount)
                 .isManual(isManual)
@@ -234,5 +235,28 @@ public class PointService {
                 .isCancelled(false)
                 .build();
         pointRepository.save(point);
+    }
+
+    /**
+     * YYYYMMDD + sequence 형태의 고유 키 생성
+     * @return 생성된 고유 키 (예: 20260331000001)
+     */
+    @Transactional
+    protected String generatePointKey() {
+        LocalDate today = LocalDate.now();
+        PointKeySequence sequence = sequenceRepository.findBySequenceDateWithLock(today)
+                .orElseGet(() -> {
+                    PointKeySequence newSequence = PointKeySequence.builder()
+                            .sequenceDate(today)
+                            .lastSequence(0L)
+                            .build();
+                    return sequenceRepository.saveAndFlush(newSequence);
+                });
+
+        sequence.increment();
+        sequenceRepository.save(sequence);
+
+        String dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return String.format("%s%06d", dateStr, sequence.getLastSequence());
     }
 }

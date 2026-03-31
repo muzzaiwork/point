@@ -21,7 +21,7 @@ erDiagram
     POINT {
         long id PK
         string userId FK "사용자 ID (USER.userId 참조)"
-        string pointKey UK "적립 고유 키"
+        string pointKey UK "적립 고유 키 (예: 20260331000001)"
         long amount "최초 적립 금액"
         long remainingAmount "사용 가능한 잔액"
         boolean isManual "수기 지급 여부"
@@ -36,7 +36,7 @@ erDiagram
         long id PK
         string userId FK "사용자 ID (USER.userId 참조)"
         string orderNo "주문 번호"
-        string pointKey UK "사용 고유 키"
+        string pointKey UK "사용 고유 키 (예: 20260331000001)"
         long totalAmount "총 사용 금액"
         datetime usageDate "사용 일시"
     }
@@ -70,3 +70,7 @@ erDiagram
 4. **POINT_USAGE_DETAIL (사용 상세 내역)**
     - 특정 사용 건(`POINT_USAGE`)이 어떤 적립 건(`POINT`)에서 얼마만큼 차감되었는지 1원 단위로 기록합니다.
     - 이를 통해 적립-사용 간의 관계를 명확히 추적하며, 사용 취소 시 복구할 대상을 정확히 찾아낼 수 있습니다.
+
+5. **POINT_KEY_SEQUENCE (키 시퀀스 관리)**
+    - 일자별로 적립/사용 키의 시퀀스 번호를 관리합니다.
+    - `sequenceDate`별로 `lastSequence`를 유지하며, 비관적 락을 통해 안전하게 증분합니다.

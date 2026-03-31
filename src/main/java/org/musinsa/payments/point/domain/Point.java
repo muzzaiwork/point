@@ -48,6 +48,8 @@ public class Point {
 
     private boolean isCancelled; // 적립 취소 여부
 
+    private LocalDateTime cancelledDate; // 취소 일시
+
     /**
      * 포인트를 사용한다 (잔액 차감)
      * @param useAmount 사용 금액
@@ -74,6 +76,7 @@ public class Point {
         }
         this.isCancelled = true;
         this.remainingAmount = 0L;
+        this.cancelledDate = LocalDateTime.now();
     }
 
     /**

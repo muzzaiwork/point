@@ -29,6 +29,7 @@ erDiagram
         datetime accumulationDate "적립 일시"
         datetime expiryDate "만료 일시"
         boolean isCancelled "적립 취소 여부"
+        datetime cancelledDate "적립 취소 일시"
     }
 
     POINT_USAGE {

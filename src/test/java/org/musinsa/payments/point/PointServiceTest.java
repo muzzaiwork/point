@@ -124,6 +124,7 @@ public class PointServiceTest {
         Point point = pointRepository.findByPointKey(pointKey).get();
         assertThat(point.isCancelled()).isTrue();
         assertThat(point.getRemainingAmount()).isEqualTo(0L);
+        assertThat(point.getCancelledDate()).isNotNull();
         
         User user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(0L);

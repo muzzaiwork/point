@@ -39,6 +39,7 @@ public class PointServiceTest {
         userRepository.save(User.builder()
                 .userId("user1")
                 .name("테스트유저")
+                .maxAccumulationPoint(100000L)
                 .maxRetentionPoint(1000000L)
                 .totalPoint(0L)
                 .build());

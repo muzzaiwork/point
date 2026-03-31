@@ -32,12 +32,6 @@ public class PointService {
     private final PointUsageDetailRepository usageDetailRepository;
     private final UserRepository userRepository;
 
-    @Value("${point.config.max-accumulation:100000}")
-    private Long maxAccumulationPerTime;
-
-    @Value("${point.config.max-retention:1000000}")
-    private Long maxRetentionPerUser;
-
     @Value("${point.config.default-expiry-days:365}")
     private Integer defaultExpiryDays;
 
@@ -56,12 +50,7 @@ public class PointService {
         User user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        // 1. 1회 적립 가능 포인트 체크 (1포인트 이상 10만포인트 이하)
-        if (amount < 1 || amount > maxAccumulationPerTime) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "1회 적립 가능한 포인트 범위를 벗어났습니다.");
-        }
-
-        // 2. 만료일 설정 (최소 1일 이상 5년 미만)
+        // 1. 만료일 설정 (최소 1일 이상 5년 미만)
         LocalDateTime now = LocalDateTime.now();
         int days = (expiryDays != null) ? expiryDays : defaultExpiryDays;
         if (days < 1 || days >= 365 * 5) {
@@ -69,7 +58,7 @@ public class PointService {
         }
         LocalDateTime expiryDate = now.plusDays(days);
 
-        // 3. 포인트 타입 설정
+        // 2. 포인트 타입 설정
         PointType type = PointType.FREE;
         if (typeStr != null) {
             try {
@@ -79,7 +68,7 @@ public class PointService {
             }
         }
 
-        // 4. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
+        // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.addPoint(amount);
 
         Point point = Point.builder()

@@ -38,6 +38,7 @@ public class PointScenarioTest {
         userRepository.save(User.builder()
                 .userId("user1")
                 .name("시나리오유저")
+                .maxAccumulationPoint(100000L)
                 .maxRetentionPoint(1000000L)
                 .totalPoint(0L)
                 .build());

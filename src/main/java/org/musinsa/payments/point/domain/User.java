@@ -1,5 +1,7 @@
 package org.musinsa.payments.point.domain;
 
+import org.musinsa.payments.point.common.ResultCode;
+import org.musinsa.payments.point.exception.BusinessException;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,6 +27,12 @@ public class User {
     private String name;
 
     /**
+     * 개인별 1회 최대 적립 가능 포인트 제한
+     */
+    @Column(nullable = false)
+    private Long maxAccumulationPoint;
+
+    /**
      * 개인별 최대 보유 가능 포인트 제한
      */
     @Column(nullable = false)
@@ -41,9 +49,14 @@ public class User {
      * @param amount 적립할 금액
      */
     public void addPoint(Long amount) {
+        if (amount < 1) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "적립 금액은 1포인트 이상이어야 합니다.");
+        }
+        if (amount > this.maxAccumulationPoint) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "1회 적립 한도(" + this.maxAccumulationPoint + ")를 초과하였습니다.");
+        }
         if (this.totalPoint + amount > this.maxRetentionPoint) {
-            throw new org.musinsa.payments.point.exception.BusinessException(
-                org.musinsa.payments.point.common.ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트를 초과할 수 없습니다.");
+            throw new BusinessException(ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트(" + this.maxRetentionPoint + ")를 초과할 수 없습니다.");
         }
         this.totalPoint += amount;
     }

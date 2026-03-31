@@ -13,6 +13,7 @@ erDiagram
         long id PK
         string userId UK "사용자 식별자"
         string name "사용자 이름"
+        long maxAccumulationPoint "개인별 1회 최대 적립 한도"
         long maxRetentionPoint "개인별 최대 보유 한도"
         long totalPoint "현재 보유 총 포인트"
     }
@@ -51,7 +52,7 @@ erDiagram
 ### 테이블 설명
 
 1. **USER (사용자)**
-    - 개인별 최대 보유 한도(`maxRetentionPoint`)와 현재 잔액(`totalPoint`)을 관리합니다.
+    - 개인별 1회 최대 적립 한도(`maxAccumulationPoint`), 최대 보유 한도(`maxRetentionPoint`)와 현재 잔액(`totalPoint`)을 관리합니다.
     - **비관적 락**을 통해 동시성 제어가 필요한 핵심 레코드입니다. (상세 내용: [concurrency.md](concurrency.md))
 
 2. **POINT (적립 내역)**

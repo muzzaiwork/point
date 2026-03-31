@@ -41,7 +41,7 @@ public class PointService {
      * @param amount 적립 금액
      * @param isManual 수기 지급 여부
      * @param typeStr 포인트 타입 (FREE, PAID)
-     * @param expiryDays 만료일 수 (기본값 365일)
+     * @param expiryDays 만료일 수 (미입력 시 2999-12-31)
      * @return 생성된 적립 포인트의 고유 키
      */
     @Transactional
@@ -50,13 +50,14 @@ public class PointService {
         User user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        // 1. 만료일 설정 (최소 1일 이상 5년 미만)
+        // 1. 만료일 설정 (미입력 시 2999-12-31)
         LocalDateTime now = LocalDateTime.now();
-        int days = (expiryDays != null) ? expiryDays : defaultExpiryDays;
-        if (days < 1 || days >= 365 * 5) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "만료일은 최소 1일 이상, 최대 5년 미만이어야 합니다.");
+        LocalDateTime expiryDate;
+        if (expiryDays != null) {
+            expiryDate = now.plusDays(expiryDays);
+        } else {
+            expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
         }
-        LocalDateTime expiryDate = now.plusDays(days);
 
         // 2. 포인트 타입 설정
         PointType type = PointType.FREE;
@@ -218,6 +219,9 @@ public class PointService {
      */
     private void createNewAccumulationForExpiredCancellation(String userId, Long amount, boolean isManual, PointType type) {
         LocalDateTime now = LocalDateTime.now();
+        // 만료된 포인트 사용 취소 시 기본적으로 2999-12-31까지로 재적립 (요구사항에 맞춰 정책 결정 가능)
+        LocalDateTime expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
+        
         Point point = Point.builder()
                 .userId(userId)
                 .pointKey(UUID.randomUUID().toString())
@@ -226,7 +230,7 @@ public class PointService {
                 .isManual(isManual)
                 .type(type)
                 .accumulationDate(now)
-                .expiryDate(now.plusDays(defaultExpiryDays))
+                .expiryDate(expiryDate)
                 .isCancelled(false)
                 .build();
         pointRepository.save(point);

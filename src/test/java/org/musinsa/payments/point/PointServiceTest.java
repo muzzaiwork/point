@@ -66,16 +66,34 @@ public class PointServiceTest {
     }
 
     @Test
-    @DisplayName("포인트 적립 실패 - 한도 초과 (1회)")
-    public void accumulateFail_MaxAccumulationPerTime() {
+    @DisplayName("포인트 적립 성공 - 만료일 수 미지정 시 2999-12-31 설정")
+    public void accumulateSuccess_DefaultExpiry() {
         // given
         String userId = "user1";
-        Long amount = 200000L; // 기본 설정 10만 초과
+        Long amount = 1000L;
         
-        // when & then
-        assertThatThrownBy(() -> pointService.accumulate(userId, amount, false, "FREE", 365))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("resultCode", ResultCode.BAD_REQUEST);
+        // when
+        String pointKey = pointService.accumulate(userId, amount, false, "FREE", null);
+        
+        // then
+        Point point = pointRepository.findByPointKey(pointKey).get();
+        assertThat(point.getExpiryDate()).isEqualTo(LocalDateTime.of(2999, 12, 31, 23, 59, 59));
+    }
+
+    @Test
+    @DisplayName("포인트 적립 성공 - 만료일 수 지정 (제한 없음)")
+    public void accumulateSuccess_CustomExpiry() {
+        // given
+        String userId = "user1";
+        Long amount = 1000L;
+        Integer expiryDays = 10000; // 약 27년
+        
+        // when
+        String pointKey = pointService.accumulate(userId, amount, false, "FREE", expiryDays);
+        
+        // then
+        Point point = pointRepository.findByPointKey(pointKey).get();
+        assertThat(point.getExpiryDate()).isAfter(LocalDateTime.now().plusYears(20));
     }
 
     @Test

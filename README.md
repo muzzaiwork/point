@@ -85,7 +85,16 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   }
   ```
 
-## 7. 핵심 로직 및 시나리오
+## 4. API 명세 및 상세 설계
+
+각 API의 상세한 동작 방식, 데이터 흐름, 비즈니스 규칙은 아래 문서를 통해 확인할 수 있습니다.
+
+- [포인트 적립 API 상세](docs/api/accumulate.md)
+- [적립 취소 API 상세](docs/api/cancel-accumulation.md)
+- [포인트 사용 API 상세](docs/api/use.md)
+- [사용 취소 API 상세](docs/api/cancel-usage.md)
+
+## 5. 핵심 로직 및 시나리오
 
 - **포인트 사용 순서**: `ORDER BY p.isManual DESC, p.expiryDate ASC` 쿼리를 통해 관리자 수기 지급 포인트를 최우선으로, 그 다음 만료일이 임박한 순서로 자동 차감됩니다.
 - **1원 단위 추적**: `PointUsageDetail` 테이블을 통해 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 기록합니다.

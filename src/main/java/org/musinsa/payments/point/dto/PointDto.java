@@ -26,7 +26,7 @@ public class PointDto {
         private boolean isManual;
 
         @Schema(description = "포인트 타입 (FREE, PAID)", example = "FREE")
-        private String type; // FREE, PAID
+        private org.musinsa.payments.point.domain.PointType type; // FREE, PAID
 
         @Schema(description = "만료일 수 (미입력 시 2999-12-31)", example = "30")
         private Integer expiryDays;

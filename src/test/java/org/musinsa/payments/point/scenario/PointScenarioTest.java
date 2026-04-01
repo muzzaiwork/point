@@ -1,6 +1,7 @@
 package org.musinsa.payments.point.scenario;
 
 import org.musinsa.payments.point.domain.Point;
+import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.domain.User;
 import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.UserRepository;
@@ -48,10 +49,10 @@ public class PointScenarioTest {
     @DisplayName("요구사항 예시 시나리오 정밀 테스트 (A~E 키 및 만료 처리)")
     public void detailedScenarioTest() {
         // 1. 1000원 적립한다 (총 잔액 0 -> 1000 원). pointKey : A 로 할당
-        String pointKeyA = pointService.accumulate("user1", 1000L, false, "FREE", 365);
+        String pointKeyA = pointService.accumulate("user1", 1000L, false, PointType.FREE, 365);
         
         // 2. 500원 적립한다 (총 잔액 1000 -> 1500 원). pointKey : B 로 할당
-        String pointKeyB = pointService.accumulate("user1", 500L, false, "FREE", 365);
+        String pointKeyB = pointService.accumulate("user1", 500L, false, PointType.FREE, 365);
         
         // 3. 주문번호 A1234 에서 1200원 사용한다 (총 잔액 1500 -> 300 원). pointKey : C 로 할당
         String pointKeyC = pointService.use("user1", "A1234", 1200L);

@@ -15,7 +15,7 @@
 | `userId` | String | O | 사용자 식별 ID | `user1` |
 | `amount` | Long | O | 적립 금액 (1P 이상) | `1000` |
 | `isManual` | Boolean | X | 관리자 수기 지급 여부 (기본: `false`) | `false` |
-| `type` | String | O | 포인트 타입 (`FREE`, `PAID`) | `FREE` |
+| `type` | Enum | O | 포인트 타입 (`FREE`, `PAID`) | `FREE` |
 | `expiryDays` | Integer | X | 만료일 수 (미입력 시 2999-12-31) | `365` |
 
 ### 응답 (Response Body)
@@ -44,7 +44,7 @@ sequenceDiagram
     participant PointEntity as Point (Entity)
     participant DB
 
-    Client->>Controller: 적립 요청 (userId, amount, type)
+    Client->>Controller: 적립 요청 (userId, amount, type Enum)
     Controller->>Service: accumulate()
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
@@ -57,26 +57,39 @@ sequenceDiagram
     Controller-->>Client: 성공 응답
 ```
 
-### 2. 데이터베이스 상태 변화 예시
+### 2. 케이스별 데이터 변화 예시
 
-**사용자(USER) 테이블**
-- `user1`의 현재 `totalPoint`: 5,000P
-- `user1`의 `maxRetentionPoint`: 1,000,000P
-- `user1`의 `maxAccumulationPoint`: 100,000P
+#### [Case 1] 정상적인 포인트 적립 (성공)
+1,000P를 성공적으로 적립하는 경우입니다.
 
-**[Step 1] 1,000P 적립 요청 발생**
+**기본 상태**
+- `user1`의 현재 `totalPoint`: **5,000P**
+- `user1`의 한도: `maxRetentionPoint: 100,000`, `maxAccumulationPoint: 10,000`
 
 | 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
 | :--- | :--- | :--- | :--- | :--- |
-| **USER** | `totalPoint` | `5,000` | `6,000` | 잔액 1,000P 증가 |
-| **POINT** | (신규 레코드) | - | `id: 10, amount: 1000, ...` | 새로운 적립 내역 생성 |
+| **USER** | `totalPoint` | `5,000` | `6,000` | 전체 잔액 1,000P 증가 |
+| **POINT** | (신규 추가) | - | `amount: 1000` | 새로운 적립 레코드 생성 |
 
-**[결과 데이터]**
+---
 
-**POINT 테이블 (신규 추가된 데이터)**
-| id | userId | pointKey | amount | remainingAmount | type | isManual | expiryDate |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 10 | user1 | 20260331000001 | 1000 | 1000 | FREE | false | 2027-03-31 |
+#### [Case 2] 1회 적립 한도 초과 (실패)
+사용자의 1회 최대 적립 한도(10,000P)를 초과하여 20,000P 적립을 시도하는 경우입니다.
+
+| 테이블 | 필드 | 상태 | 결과 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **USER** | `totalPoint` | `5,000` | **변화 없음** | 예외 발생 (400 Bad Request) |
+| **POINT** | (신규 추가) | - | **생성 안 됨** | 검증 실패 |
+
+---
+
+#### [Case 3] 총 보유 한도 초과 (실패)
+적립 후의 총 잔액이 보유 한도(100,000P)를 넘어서는 경우입니다. (현재 잔액 95,000P인 상태에서 10,000P 적립 시도)
+
+| 테이블 | 필드 | 상태 | 결과 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **USER** | `totalPoint` | `95,000` | **변화 없음** | 예외 발생 (400 Bad Request) |
+| **POINT** | (신규 추가) | - | **생성 안 됨** | 보유 한도 초과 |
 
 ---
 

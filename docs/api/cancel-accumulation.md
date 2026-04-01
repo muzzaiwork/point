@@ -43,43 +43,72 @@ sequenceDiagram
     Controller->>Service: cancelAccumulation(pointKey)
     Service->>DB: Point 정보 조회
     DB-->>Service: Point 객체 반환
+    
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
+    
     Service->>PointEntity: cancel()
-    Note over PointEntity: 1. 이미 취소되었는지 검증<br/>2. 일부라도 사용되었는지 검증
-    PointEntity-->>Service: 취소 상태 & 일시 업데이트
-    Service->>UserEntity: subtractPoint(amount)
-    UserEntity-->>Service: 사용자 잔액 업데이트
+    Note over PointEntity: 1. 이미 취소되었는지 검증<br/>2. 일부라도 사용되었는지 검증<br/>(amount == remainingAmount 확인)
+    PointEntity-->>Service: isCancelled=true, remainingAmount=0 업데이트
+    
+    Service->>UserEntity: usePoint(cancelAmount)
+    Note over UserEntity: 적립된 금액을 회수하므로 전체 잔액(totalPoint)에서 차감
+    UserEntity-->>Service: 사용자 잔액 업데이트 완료
+    
     Service->>DB: Point & User 저장
     Service-->>Controller: 성공 반환
     Controller-->>Client: 성공 응답
 ```
 
-### 2. 데이터베이스 상태 변화 예시
+---
 
-**POINT 테이블 (ID 10)**
-- `pointKey`: 20260331000001
-- `amount`: 1,000P
-- `remainingAmount`: 1,000P
-- `isCancelled`: `false`
+## 케이스별 데이터 변화 예시
 
-**USER 테이블**
-- `userId`: `user1`
-- `totalPoint`: 6,000P
+### [Case 1] 정상적인 적립 취소 (성공)
+이미 적립된 1,000P를 사용하기 전에 취소하는 경우입니다.
 
-**[Step 1] 적립 취소 요청 발생**
+**기본 상태**
+- `user1`의 잔액: **6,000P**
+- 적립 내역 (ID: 10): `amount: 1,000`, `remainingAmount: 1,000`, `isCancelled: false`
 
 | 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
 | :--- | :--- | :--- | :--- | :--- |
-| **POINT** | `isCancelled` | `false` | `true` | 취소 상태로 변경 |
-| **POINT** | `cancelledDate` | `null` | `2026-03-31T11:27` | 취소 일시 기록 |
-| **USER** | `totalPoint` | `6,000` | `5,000` | 취소된 만큼 사용자 잔액 차감 |
+| **POINT** | `isCancelled` | `false` | `true` | 취소 완료 |
+| **POINT** | `remainingAmount` | `1,000` | `0` | 해당 적립 건의 사용 가능 잔액 0으로 변경 |
+| **USER** | `totalPoint` | `6,000` | `5,000` | **전체 잔액에서 1,000P 차감** (적립 철회) |
+
+> **💡 왜 차감되나요?**
+> 적립은 사용자에게 포인트를 '지급'한 행위입니다. 그 행위를 '취소'하는 것이므로, 사용자가 보유하고 있던 전체 포인트 잔액에서 다시 그만큼을 회수(차감)하는 것이 논리적으로 맞습니다.
+
+---
+
+### [Case 2] 이미 일부가 사용된 경우 (실패)
+적립된 1,000P 중 200P를 이미 사용한 상태에서 취소를 시도하는 경우입니다.
+
+**기본 상태**
+- `user1`의 잔액: **5,800P**
+- 적립 내역 (ID: 10): `amount: 1,000`, `remainingAmount: 800`, `isCancelled: false`
+
+| 테이블 | 필드 | 상태 | 결과 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **POINT** | `remainingAmount` | `800` | **취소 불가** | `amount(1,000)`와 불일치 |
+| **USER** | `totalPoint` | `5,800` | **변화 없음** | 예외 발생 (409 Conflict) |
+
+---
+
+### [Case 3] 이미 취소된 건을 다시 취소 (실패)
+
+**기본 상태**
+- 적립 내역 (ID: 10): `isCancelled: true`
+
+| 테이블 | 필드 | 상태 | 결과 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **POINT** | `isCancelled` | `true` | **취소 불가** | 이미 취소된 상태 |
 
 ---
 
 ## 주요 비즈니스 규칙
 
 1. **사용 여부 확인**: 적립된 금액 중 일부라도 사용된 경우( `remainingAmount < amount` ) 적립 취소가 불가능합니다.
-2. **중복 취소 방지**: 이미 취소된 건은 다시 취소할 수 없습니다.
-3. **사용자 잔액 반영**: 취소가 성공하면 사용자의 `totalPoint`에서도 해당 금액만큼 즉시 차감됩니다.
-4. **동시성 제어**: 사용자 잔액 업데이트 시 비관적 락을 획득하여 데이터 정합성을 보장합니다.
+2. **전체 잔액 반영**: 취소 시 사용자의 `totalPoint`에서 취소되는 적립 건의 잔액만큼 차감합니다. (사용자가 적립받은 혜택을 회수하는 개념)
+3. **동시성 제어**: 사용자 레코드에 비관적 락을 획득하여 취소 도중 다른 사용 요청이 들어오지 못하도록 보호합니다.

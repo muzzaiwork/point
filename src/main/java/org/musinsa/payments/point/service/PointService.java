@@ -41,12 +41,12 @@ public class PointService {
      * @param userId 사용자 ID
      * @param amount 적립 금액
      * @param isManual 수기 지급 여부
-     * @param typeStr 포인트 타입 (FREE, PAID)
+     * @param type 포인트 타입 (FREE, PAID)
      * @param expiryDays 만료일 수 (미입력 시 2999-12-31)
      * @return 생성된 적립 포인트의 고유 키
      */
     @Transactional
-    public String accumulate(String userId, Long amount, boolean isManual, String typeStr, Integer expiryDays) {
+    public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         User user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
@@ -60,17 +60,7 @@ public class PointService {
             expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
         }
 
-        // 2. 포인트 타입 설정
-        PointType type = PointType.FREE;
-        if (typeStr != null) {
-            try {
-                type = PointType.valueOf(typeStr.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new BusinessException(ResultCode.BAD_REQUEST, "잘못된 포인트 타입입니다.");
-            }
-        }
-
-        // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
+        // 2. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.addPoint(amount);
 
         Point point = Point.builder()

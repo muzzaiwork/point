@@ -9,6 +9,10 @@ import java.time.LocalDateTime;
  * 포인트 사용 상세 내역 엔티티 (어떤 적립 건에서 얼마를 사용했는지 1원 단위로 기록)
  */
 @Entity
+@Table(name = "point_usage_detail", indexes = {
+        @Index(name = "idx_pud_point_usage_id", columnList = "point_usage_id"),
+        @Index(name = "idx_pud_point_accumulation_id", columnList = "point_accumulation_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

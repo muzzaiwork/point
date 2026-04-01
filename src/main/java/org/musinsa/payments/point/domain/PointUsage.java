@@ -9,6 +9,10 @@ import java.time.LocalDateTime;
  * 포인트 사용 내역 엔티티
  */
 @Entity
+@Table(name = "point_usage", indexes = {
+        @Index(name = "idx_point_usage_user_id_usage_date", columnList = "userId, usageDate"),
+        @Index(name = "idx_point_usage_usage_date", columnList = "usageDate")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

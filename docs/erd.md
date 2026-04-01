@@ -50,6 +50,47 @@ erDiagram
     }
 ```
 
+### 성능 최적화 전략 (대용량 데이터 대응)
+
+대량의 데이터가 발생하는 포인트 시스템의 특성을 고려하여 아래와 같은 성능 최적화 전략을 설계하였습니다.
+
+#### 1. 인덱스 설계 (Index Design)
+조회 빈도가 높고 집계 작업이 많은 컬럼을 중심으로 인덱스를 구성하였습니다.
+
+- **POINT (적립 내역)**
+    - `idx_point_user_id_expiry_date`: `(userId, expiryDate, isManual)`
+        - 사용자의 가용 포인트를 조회할 때(만료 임박순, 수기 지급 우선) 최적의 성능을 냅니다.
+    - `idx_point_accumulation_date`: `(accumulationDate)`
+        - 일자별 적립 통계 및 집계 쿼리에 사용됩니다.
+    - `idx_point_expiry_date`: `(expiryDate)`
+        - 만료 처리 배치 작업 시 성능을 향상시킵니다.
+
+- **POINT_USAGE (사용 내역)**
+    - `idx_point_usage_user_id_usage_date`: `(userId, usageDate)`
+        - 특정 사용자의 사용 이력을 최신순으로 조회할 때 유용합니다.
+    - `idx_point_usage_usage_date`: `(usageDate)`
+        - 일자별 사용 통계 및 집계 쿼리에 사용됩니다.
+
+- **POINT_USAGE_DETAIL (사용 상세)**
+    - `idx_pud_point_usage_id`, `idx_pud_point_accumulation_id`
+        - 조인 성능 향상 및 이력 추적을 위한 외래키 인덱스입니다.
+
+#### 2. 파티셔닝 전략 (Partitioning Strategy)
+H2 Database는 기본적으로 파티셔닝 기능을 지원하지 않으나, 대용량 서비스 환경(MySQL, PostgreSQL, Oracle 등)에서는 아래와 같은 파티셔닝 전략을 권장합니다.
+
+- **Range Partitioning (날짜 기반)**
+    - **대상 테이블**: `POINT`, `POINT_USAGE`, `POINT_USAGE_DETAIL`
+    - **파티션 키**: `accumulationDate`, `usageDate` 등 날짜 컬럼
+    - **장점**: 
+        - 일자별/월별 집계 쿼리 성능이 대폭 향상됩니다.
+        - 오래된 이력 데이터를 보관/삭제(Archiving/Purge)할 때 파티션 단위로 작업하여 DB 부하를 최소화할 수 있습니다.
+        - 특정 기간의 데이터만 스캔하므로 I/O 효율이 좋아집니다.
+
+- **Hash Partitioning (사용자 ID 기반)**
+    - **대상 테이블**: `USER`
+    - **파티션 키**: `userId`
+    - **장점**: 대규모 사용자 환경에서 쓰기 부하를 여러 데이터 파일로 분산시킬 수 있습니다.
+
 ### 테이블 설명
 
 1. **USER (사용자)**

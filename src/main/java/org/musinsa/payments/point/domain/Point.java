@@ -12,6 +12,11 @@ import java.time.LocalDateTime;
  * 포인트 적립 내역 엔티티
  */
 @Entity
+@Table(name = "point", indexes = {
+        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDate, isManual"),
+        @Index(name = "idx_point_accumulation_date", columnList = "accumulationDate"),
+        @Index(name = "idx_point_expiry_date", columnList = "expiryDate")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

@@ -23,7 +23,7 @@ public class PointApplication {
             if (userRepository.findByUserId("yonkum").isEmpty()) {
                 userRepository.save(User.builder()
                         .userId("yonkum")
-                        .name("연금")
+                        .name("김원겸")
                         .maxAccumulationPoint(100000L)
                         .maxRetentionPoint(1000000L)
                         .totalPoint(0L)

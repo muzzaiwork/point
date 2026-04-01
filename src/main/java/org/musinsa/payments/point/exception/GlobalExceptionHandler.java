@@ -19,7 +19,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
-        log.warn("Business exception: {} - {}", e.getResultCode(), e.getMessage());
+        log.warn("[EXCEPTION] BusinessException: {} - {} | Code: {}", 
+                e.getResultCode(), e.getMessage(), e.getResultCode().getCode());
         ResultCode resultCode = e.getResultCode();
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
@@ -31,7 +32,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
-        log.warn("Illegal argument exception: {}", e.getMessage());
+        log.warn("[EXCEPTION] IllegalArgumentException: {}", e.getMessage());
         ResultCode resultCode = ResultCode.BAD_REQUEST;
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
@@ -43,7 +44,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalStateException(IllegalStateException e) {
-        log.warn("Illegal state exception: {}", e.getMessage());
+        log.warn("[EXCEPTION] IllegalStateException: {}", e.getMessage());
         ResultCode resultCode = ResultCode.CONFLICT;
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
@@ -55,7 +56,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
-        log.error("Unhandled exception: ", e);
+        log.error("[EXCEPTION] Unhandled Exception: ", e);
         ResultCode resultCode = ResultCode.INTERNAL_SERVER_ERROR;
         return ResponseEntity
                 .status(resultCode.getHttpStatus())

@@ -31,7 +31,7 @@ public class PointDto {
         @Schema(description = "관리자 수기 지급 여부", example = "false")
         private boolean isManual;
 
-        @NotNull(message = "포인트 타입은 필수입니다. (FREE, PAID)")
+        @NotNull(message = "잘못된 포인트 타입입니다. (FREE, PAID 중 하나를 입력하세요)")
         @Schema(description = "포인트 타입 (FREE, PAID)", example = "FREE")
         private org.musinsa.payments.point.domain.PointType type; // FREE, PAID
 

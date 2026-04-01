@@ -1,5 +1,7 @@
 package org.musinsa.payments.point.exception;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import lombok.extern.slf4j.Slf4j;
 import org.musinsa.payments.point.common.ApiResponse;
 import org.musinsa.payments.point.common.ResultCode;
@@ -9,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -78,12 +82,21 @@ public class GlobalExceptionHandler {
         log.warn("[EXCEPTION] HttpMessageNotReadableException: {}", e.getMessage());
         ResultCode resultCode = ResultCode.BAD_REQUEST;
         String message = "잘못된 요청 형식입니다. 필드 타입을 확인해주세요.";
-        
-        // Enum 변환 실패 시 더 구체적인 메시지 제공 (선택 사항)
-        if (e.getMessage() != null && e.getMessage().contains("PointType")) {
-            message = "잘못된 포인트 타입입니다. (FREE, PAID 중 하나를 입력하세요)";
+
+        // Jackson의 InvalidFormatException인 경우 상세 정보 추출 (Enum 변환 실패 등)
+        if (e.getCause() instanceof InvalidFormatException ife) {
+            String fieldName = ife.getPath().stream()
+                    .map(JsonMappingException.Reference::getFieldName)
+                    .collect(Collectors.joining("."));
+
+            if (ife.getTargetType().isEnum()) {
+                String values = Arrays.toString(ife.getTargetType().getEnumConstants());
+                message = String.format("잘못된 입력값입니다. 필드: '%s', 허용된 값: %s", fieldName, values);
+            } else {
+                message = String.format("잘못된 입력값입니다. 필드: '%s', 기대 타입: %s", fieldName, ife.getTargetType().getSimpleName());
+            }
         }
-        
+
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
                 .body(ApiResponse.error(resultCode, message));

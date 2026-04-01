@@ -5,9 +5,9 @@
 
 ## 1. 개발 환경
 - **Java**: 21
-- **Framework**: Spring Boot 3.2.2
+- **Framework**: Spring Boot 3.4.1
 - **Database**: H2 (In-memory)
-- **Build Tool**: Gradle 8.x
+- **Build Tool**: Gradle 9.0.0 (Wrapper)
 
 ## 2. 빌드 및 실행 방법
 
@@ -58,12 +58,6 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   - [시나리오 흐름 및 DB 상태 변화 상세보기](docs/scenario-flow.md)
   - [시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)
 
-## 6. 성능 최적화 및 대용량 데이터 설계
-대용량 트래픽과 데이터를 안정적으로 처리하기 위한 설계 내용입니다.
-- **인덱스 설계**: 가용 포인트 조회, 만료 처리, 일자별 통계 집계 성능을 극대화하기 위해 복합 인덱스를 적용했습니다.
-- **파티셔닝 전략**: 대규모 운영 환경을 고려한 날짜 기반(Range) 및 ID 기반(Hash) 파티셔닝 전략을 수립했습니다.
-- [데이터베이스 성능 최적화 설계 (인덱스/파티셔닝) 상세 보기](docs/erd.md#성능-최적화-전략-대용량-데이터-대응)
-
-## 9. 아키텍처 구성
+## 6. 아키텍처 구성
 AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
 - [AWS 아키텍처 상세 보기 (Mermaid)](docs/architecture.md)

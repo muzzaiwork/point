@@ -1,6 +1,9 @@
 package org.musinsa.payments.point.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -16,15 +19,19 @@ public class PointDto {
     @NoArgsConstructor
     @Schema(description = "포인트 적립 요청")
     public static class AccumulateRequest {
+        @NotBlank(message = "사용자 ID는 필수입니다.")
         @Schema(description = "사용자 ID", example = "yonkum")
         private String userId;
 
+        @NotNull(message = "적립 금액은 필수입니다.")
+        @Min(value = 1, message = "적립 금액은 최소 1P 이상이어야 합니다.")
         @Schema(description = "적립 금액", example = "1000")
         private Long amount;
 
         @Schema(description = "관리자 수기 지급 여부", example = "false")
         private boolean isManual;
 
+        @NotNull(message = "포인트 타입은 필수입니다. (FREE, PAID)")
         @Schema(description = "포인트 타입 (FREE, PAID)", example = "FREE")
         private org.musinsa.payments.point.domain.PointType type; // FREE, PAID
 
@@ -39,12 +46,16 @@ public class PointDto {
     @NoArgsConstructor
     @Schema(description = "포인트 사용 요청")
     public static class UseRequest {
+        @NotBlank(message = "사용자 ID는 필수입니다.")
         @Schema(description = "사용자 ID", example = "yonkum")
         private String userId;
 
+        @NotBlank(message = "주문 번호는 필수입니다.")
         @Schema(description = "주문 번호", example = "A1234")
         private String orderNo;
 
+        @NotNull(message = "사용 금액은 필수입니다.")
+        @Min(value = 1, message = "사용 금액은 최소 1P 이상이어야 합니다.")
         @Schema(description = "사용 금액", example = "500")
         private Long amount;
     }
@@ -56,6 +67,8 @@ public class PointDto {
     @NoArgsConstructor
     @Schema(description = "포인트 사용 취소 요청")
     public static class CancelUsageRequest {
+        @NotNull(message = "취소 금액은 필수입니다.")
+        @Min(value = 1, message = "취소 금액은 최소 1P 이상이어야 합니다.")
         @Schema(description = "취소 금액 (부분 취소 가능)", example = "100")
         private Long amount;
     }

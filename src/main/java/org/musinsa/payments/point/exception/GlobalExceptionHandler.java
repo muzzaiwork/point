@@ -4,8 +4,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.musinsa.payments.point.common.ApiResponse;
 import org.musinsa.payments.point.common.ResultCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.stream.Collectors;
 
 /**
  * 전역 예외 핸들러
@@ -49,6 +53,40 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
                 .body(ApiResponse.error(resultCode, e.getMessage()));
+    }
+
+    /**
+     * Bean Validation 유효성 검사 실패 처리
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        String errorMessage = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        log.warn("[EXCEPTION] MethodArgumentNotValidException: {}", errorMessage);
+        ResultCode resultCode = ResultCode.BAD_REQUEST;
+        return ResponseEntity
+                .status(resultCode.getHttpStatus())
+                .body(ApiResponse.error(resultCode, errorMessage));
+    }
+
+    /**
+     * HTTP 메시지 읽기 실패 (JSON 파싱 오류, Enum 타입 불일치 등)
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        log.warn("[EXCEPTION] HttpMessageNotReadableException: {}", e.getMessage());
+        ResultCode resultCode = ResultCode.BAD_REQUEST;
+        String message = "잘못된 요청 형식입니다. 필드 타입을 확인해주세요.";
+        
+        // Enum 변환 실패 시 더 구체적인 메시지 제공 (선택 사항)
+        if (e.getMessage() != null && e.getMessage().contains("PointType")) {
+            message = "잘못된 포인트 타입입니다. (FREE, PAID 중 하나를 입력하세요)";
+        }
+        
+        return ResponseEntity
+                .status(resultCode.getHttpStatus())
+                .body(ApiResponse.error(resultCode, message));
     }
 
     /**

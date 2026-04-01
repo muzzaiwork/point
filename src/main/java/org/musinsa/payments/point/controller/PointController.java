@@ -3,6 +3,7 @@ package org.musinsa.payments.point.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ApiResponse;
 import org.musinsa.payments.point.dto.PointDto;
@@ -27,7 +28,7 @@ public class PointController {
      */
     @PostMapping("/accumulate")
     @Operation(summary = "포인트 적립", description = "사용자에게 포인트를 적립합니다. (1회 최대 10만, 개인별 최대 100만 보유 가능)")
-    public ApiResponse<String> accumulate(@RequestBody PointDto.AccumulateRequest request) {
+    public ApiResponse<String> accumulate(@Valid @RequestBody PointDto.AccumulateRequest request) {
         String pointKey = pointService.accumulate(
                 request.getUserId(),
                 request.getAmount(),
@@ -58,7 +59,7 @@ public class PointController {
      */
     @PostMapping("/use")
     @Operation(summary = "포인트 사용", description = "주문 시 포인트를 사용합니다. 수기 지급 포인트가 우선 사용되며, 만료일이 짧은 순서로 차감됩니다.")
-    public ApiResponse<String> use(@RequestBody PointDto.UseRequest request) {
+    public ApiResponse<String> use(@Valid @RequestBody PointDto.UseRequest request) {
         String pointKey = pointService.use(
                 request.getUserId(),
                 request.getOrderNo(),
@@ -77,7 +78,7 @@ public class PointController {
     @Operation(summary = "사용 취소", description = "사용한 포인트를 취소(복구)합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.")
     public ApiResponse<Void> cancelUsage(
             @Parameter(description = "사용 시 발급된 pointKey", example = "20260401000002") @PathVariable String pointKey,
-            @RequestBody PointDto.CancelUsageRequest request) {
+            @Valid @RequestBody PointDto.CancelUsageRequest request) {
         pointService.cancelUsage(pointKey, request.getAmount());
         return ApiResponse.success("사용 취소 성공");
     }

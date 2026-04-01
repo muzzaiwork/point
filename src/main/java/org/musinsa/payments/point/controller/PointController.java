@@ -46,7 +46,7 @@ public class PointController {
     @PostMapping("/accumulate/{pointKey}/cancel")
     @Operation(summary = "적립 취소", description = "특정 적립 건을 취소합니다. 이미 사용된 포인트가 있는 경우 취소할 수 없습니다.")
     public ApiResponse<Void> cancelAccumulation(
-            @Parameter(description = "적립 시 발급된 pointKey") @PathVariable String pointKey) {
+            @Parameter(description = "적립 시 발급된 pointKey", example = "20260401000001") @PathVariable String pointKey) {
         pointService.cancelAccumulation(pointKey);
         return ApiResponse.success("적립 취소 성공");
     }
@@ -76,7 +76,7 @@ public class PointController {
     @PostMapping("/use/{pointKey}/cancel")
     @Operation(summary = "사용 취소", description = "사용한 포인트를 취소(복구)합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.")
     public ApiResponse<Void> cancelUsage(
-            @Parameter(description = "사용 시 발급된 pointKey") @PathVariable String pointKey,
+            @Parameter(description = "사용 시 발급된 pointKey", example = "20260401000002") @PathVariable String pointKey,
             @RequestBody PointDto.CancelUsageRequest request) {
         pointService.cancelUsage(pointKey, request.getAmount());
         return ApiResponse.success("사용 취소 성공");

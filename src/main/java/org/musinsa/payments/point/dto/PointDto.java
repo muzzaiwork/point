@@ -16,7 +16,7 @@ public class PointDto {
     @NoArgsConstructor
     @Schema(description = "포인트 적립 요청")
     public static class AccumulateRequest {
-        @Schema(description = "사용자 ID", example = "user1")
+        @Schema(description = "사용자 ID", example = "yonkum")
         private String userId;
 
         @Schema(description = "적립 금액", example = "1000")
@@ -39,7 +39,7 @@ public class PointDto {
     @NoArgsConstructor
     @Schema(description = "포인트 사용 요청")
     public static class UseRequest {
-        @Schema(description = "사용자 ID", example = "user1")
+        @Schema(description = "사용자 ID", example = "yonkum")
         private String userId;
 
         @Schema(description = "주문 번호", example = "A1234")

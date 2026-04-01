@@ -1,6 +1,7 @@
 # 무료 포인트 시스템 (API)
 
-본 프로젝트는 무신사페이먼츠 Backend Engineer 과제 전형을 위해 개발된 무료 포인트 시스템 API입니다.
+> ### 🎯 과제 목표
+> **포인트 적립 단위(`pointKey` 단위)의 상태 변화와 그 이력의 일관성을 끝까지 맞추는 시스템**
 
 ## 1. 개발 환경
 - **Java**: 21
@@ -26,73 +27,27 @@
 java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 ```
 
+### 2.3 접속 정보
+- **Swagger UI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- **API Base URL**: `http://localhost:8080/api/points`
+
+
 ## 3. 요구사항 구현 내용
 
-### 3.0 Swagger UI (API 문서)
-- 어플리케이션 실행 후 아래 경로에서 API 문서를 확인하고 테스트할 수 있습니다.
-- `http://localhost:8080/swagger-ui/index.html`
+### 3.0 데이터베이스 설계 (ERD)
+상세한 데이터베이스 설계 및 Mermaid 다이어그램은 아래 문서에서 확인할 수 있습니다.
+- [데이터베이스 설계 (ERD) 상세 보기](docs/erd.md)
 
-### 3.1 적립 (Accumulation)
-- 1회 적립 가능 포인트: 1포인트 이상, 사용자별 설정된 한도 이하
-- 개인별 최대 보유 가능 포인트 제한 적용 (사용자별 설정)
-- 특정 적립 건이 어떤 주문에서 사용되었는지 1원 단위로 추적 가능
-- 수기 지급 포인트 구분 식별 가능
-- 만료일 설정: 미입력 시 2999-12-31 만료 (제한 없음)
-
-### 3.2 적립 취소 (Accumulation Cancel)
-- 특정 적립 건에 대해 취소 가능
-- 이미 사용된 금액이 있는 경우 취소 불가
-
-### 3.3 사용 (Usage)
-- 주문 시에만 사용 가능 (주문번호 필수 기록)
-- 수기 지급 포인트 우선 사용 -> 만료일이 짧게 남은 순서로 사용
-
-### 3.4 사용 취소 (Usage Cancel)
-- 사용한 금액 전체 또는 일부 취소 가능
-- 사용 취소 시점에 만료된 포인트는 신규 적립 처리
-
-## 6. API 상세 (예시)
-
-### 6.1 적립
-- **Endpoint**: `POST /api/points/accumulate`
-- **Request Body**:
-  ```json
-  {
-    "userId": "user1",
-    "amount": 1000,
-    "isManual": false,
-    "expiryDays": 365
-  }
-  ```
-
-### 6.2 사용
-- **Endpoint**: `POST /api/points/use`
-- **Request Body**:
-  ```json
-  {
-    "userId": "user1",
-    "orderNo": "ORD-100",
-    "amount": 500
-  }
-  ```
-
-### 6.3 사용 취소
-- **Endpoint**: `POST /api/points/use/{pointKey}/cancel`
-- **Request Body**:
-  ```json
-  {
-    "amount": 500
-  }
-  ```
-
-## 4. API 명세 및 상세 설계
+### 3.1 API 명세 및 상세 설계
 
 각 API의 상세한 동작 방식, 데이터 흐름, 비즈니스 규칙은 아래 문서를 통해 확인할 수 있습니다.
 
-- [포인트 적립 API 상세](docs/api/accumulate.md)
-- [적립 취소 API 상세](docs/api/cancel-accumulation.md)
-- [포인트 사용 API 상세](docs/api/use.md)
-- [사용 취소 API 상세](docs/api/cancel-usage.md)
+| 기능 | Endpoint | 상세 문서 |
+| :--- | :--- | :--- |
+| 포인트 적립 | `POST /api/points/accumulate` | [상세 보기](docs/api/accumulate.md) |
+| 적립 취소 | `POST /api/points/accumulate/{pointKey}/cancel` | [상세 보기](docs/api/cancel-accumulation.md) |
+| 포인트 사용 | `POST /api/points/use` | [상세 보기](docs/api/use.md) |
+| 사용 취소 | `POST /api/points/use/{pointKey}/cancel` | [상세 보기](docs/api/cancel-usage.md) |
 
 ## 5. 핵심 로직 및 시나리오
 
@@ -103,9 +58,6 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   - [시나리오 흐름 및 DB 상태 변화 상세보기](docs/scenario-flow.md)
   - [시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)
 
-## 8. 데이터베이스 설계 (ERD)
-ERD는 `docs/erd.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
-- [ERD 상세 보기 (Mermaid)](docs/erd.md)
 
 ## 9. 아키텍처 구성
 AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.

@@ -20,7 +20,8 @@
 2. [접속 정보](#2-접속-정보)
 3. [요구사항 구현 및 설계](#3-요구사항-구현-및-설계)
 4. [핵심 로직 상세](#4-핵심-로직-상세)
-5. [아키텍처 구성](#5-아키텍처-구성)
+5. [시스템 설계 공통 사항](#5-시스템-설계-공통-사항)
+6. [아키텍처 구성](#6-아키텍처-구성)
 
 ---
 
@@ -92,6 +93,65 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ---
 
-## 🏗 5. 아키텍처 구성
+---
+
+## 🛠 5. 시스템 설계 공통 사항
+
+### 5.1 예외 처리 방식 (Exception Handling)
+- **`BusinessException`**: 비즈니스 로직 위반 시 발생하는 커스텀 예외입니다. `ResultCode`를 통해 에러 코드와 HTTP 상태 코드를 관리합니다.
+- **`GlobalExceptionHandler`**: `@RestControllerAdvice`를 사용하여 모든 예외를 전역적으로 포착하고, 일관된 `ApiResponse` 형식으로 응답합니다.
+  - 예상치 못한 서버 오류는 `500 Internal Server Error`로 처리하며 보안을 위해 상세 에러는 로그에만 남깁니다.
+
+**코드 예시 (GlobalExceptionHandler.java):**
+```java
+@ExceptionHandler(BusinessException.class)
+public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+    log.warn("[EXCEPTION] BusinessException: {} - {} | Code: {}", 
+            e.getResultCode(), e.getMessage(), e.getResultCode().getCode());
+    ResultCode resultCode = e.getResultCode();
+    return ResponseEntity
+            .status(resultCode.getHttpStatus())
+            .body(ApiResponse.error(resultCode, e.getMessage()));
+}
+```
+
+### 5.2 유효성 검증 방식 (Validation)
+- **DTO 레벨 검증**: Jakarta Bean Validation(`@NotBlank`, `@Min`, `@NotNull` 등)을 사용하여 API 입력 단계에서 1차 검증을 수행합니다.
+- **도메인 레벨 검증**: 엔티티 내부에서 비즈니스 규칙(예: 보유 한도 초과, 사용 금액 초과 등)을 직접 검증하여 데이터의 정합성을 보장합니다.
+
+**코드 예시 (PointDto.java / User.java):**
+```java
+// DTO 검증
+public static class AccumulateRequest {
+    @NotNull(message = "적립 금액은 필수입니다.")
+    @Min(value = 1, message = "적립 금액은 최소 1P 이상이어야 합니다.")
+    private Long amount;
+}
+
+// 도메인 검증 (User.java)
+public void addPoint(Long amount) {
+    if (this.totalPoint + amount > this.maxRetentionPoint) {
+        throw new BusinessException(ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트 초과");
+    }
+}
+```
+
+### 5.3 로깅 및 추적 방식 (Logging & Trace)
+- **`ApiLoggingFilter`**: 모든 API의 요청(Method, URI, Body)과 응답(Status, Duration, Body)을 자동으로 로깅하여 이슈 발생 시 추적성을 확보합니다.
+- **식별 키 기반 추적**: `pointKey`를 통해 적립-사용-취소로 이어지는 전체 라이프사이클을 추적할 수 있습니다.
+
+**코드 예시 (ApiLoggingFilter.java):**
+```java
+private void logResponse(ContentCachingResponseWrapper response, long duration) {
+    int status = response.getStatus();
+    String payload = new String(response.getContentAsByteArray());
+    log.info("[RESPONSE] Status: {} | Duration: {}ms | Body: {}", 
+            status, duration, payload);
+}
+```
+
+---
+
+## 🏗 6. 아키텍처 구성
 AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
 - [☁️ AWS 아키텍처 상세 보기 (EKS, ALB, Aurora)](docs/architecture.md)

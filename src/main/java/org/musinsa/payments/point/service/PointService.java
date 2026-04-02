@@ -25,7 +25,7 @@ public class PointService {
     private final OrderRepository orderRepository;
     private final OrderCancelRepository orderCancelRepository;
     private final PointUsageDetailRepository usageDetailRepository;
-    private final UserRepository userRepository;
+    private final UserAccountRepository userRepository;
     private final PointKeySequenceRepository sequenceRepository;
 
     @Value("${point.accumulation.max-limit}")
@@ -44,7 +44,7 @@ public class PointService {
     @Transactional
     public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays, String orderNo) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
-        User user = userRepository.findByUserIdWithLock(userId)
+        UserAccount user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         // 1. 시스템 공통 적립 상한 검증
@@ -91,7 +91,7 @@ public class PointService {
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "적립 내역을 찾을 수 없습니다."));
         
         // 사용자 잔액 차감을 위해 사용자 조회 (락 획득)
-        User user = userRepository.findByUserIdWithLock(point.getUserId())
+        UserAccount user = userRepository.findByUserIdWithLock(point.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         long amountToCancel = point.getRemainingAmount();
@@ -113,7 +113,7 @@ public class PointService {
     @Transactional
     public String use(String userId, String orderNo, Long useAmount) {
         // 0. 사용자 조회 및 락 획득
-        User user = userRepository.findByUserIdWithLock(userId)
+        UserAccount user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         // 1. 사용자 잔액 체크 및 차감
@@ -169,7 +169,7 @@ public class PointService {
         }
 
         // 0. 사용자 조회 및 락 획득
-        User user = userRepository.findByUserIdWithLock(order.getUserId())
+        UserAccount user = userRepository.findByUserIdWithLock(order.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         // 1. 주문 내역 업데이트 (취소 금액 누적)
@@ -217,7 +217,7 @@ public class PointService {
     }
 
     /**
-     * 사용 취소 시 만료된 포인트에 대해 신규 적립 내역만 생성 (User 잔액은 이미 업데이트됨)
+     * 사용 취소 시 만료된 포인트에 대해 신규 적립 내역만 생성 (UserAccount 잔액은 이미 업데이트됨)
      */
     private void createNewAccumulationForExpiredCancellation(String userId, Long amount, boolean isManual, PointType type) {
         LocalDateTime now = LocalDateTime.now();

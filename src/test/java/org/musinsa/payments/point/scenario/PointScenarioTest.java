@@ -2,9 +2,9 @@ package org.musinsa.payments.point.scenario;
 
 import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointType;
-import org.musinsa.payments.point.domain.User;
+import org.musinsa.payments.point.domain.UserAccount;
 import org.musinsa.payments.point.repository.PointRepository;
-import org.musinsa.payments.point.repository.UserRepository;
+import org.musinsa.payments.point.repository.UserAccountRepository;
 import org.musinsa.payments.point.service.PointService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,12 +31,12 @@ public class PointScenarioTest {
     private PointRepository pointRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserAccountRepository userRepository;
 
     @BeforeEach
     public void setUp() {
         // 테스트 사용자 생성
-        userRepository.save(User.builder()
+        userRepository.save(UserAccount.builder()
                 .userId("user1")
                 .name("시나리오유저")
                 .maxAccumulationPoint(100000L)
@@ -81,7 +81,7 @@ public class PointScenarioTest {
         assertThat(updatedAccB.getRemainingAmount()).isEqualTo(500L);
         
         // A는 이미 만료일이 지났기 때문에 1000원이 신규적립 되어야 한다.
-        User user = userRepository.findByUserId("user1").get();
+        UserAccount user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(1400L); // 300(기존) + 1100(취소분) = 1400
         
         // 신규 적립된 건이 있는지 확인 (사용 가능한 포인트 목록에서 1400원 확인)
@@ -91,7 +91,7 @@ public class PointScenarioTest {
         // C는 이제 1200원 사용금액중 100원을 부분취소 할 수 있다. (기존 1100원 취소했으므로 남은건 100원)
         pointService.cancelUsage(orderNoC, 100L);
         
-        User finalUser = userRepository.findByUserId("user1").get();
+        UserAccount finalUser = userRepository.findByUserId("user1").get();
         assertThat(finalUser.getTotalPoint()).isEqualTo(1500L); // 1400 + 100
         
         Long finalTotalRemaining = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());

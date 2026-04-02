@@ -5,9 +5,6 @@ import org.musinsa.payments.point.exception.BusinessException;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 /**
  * 사용자 엔티티
  * 개인별 포인트 보유 한도 등을 관리한다.
@@ -18,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class User extends BaseEntity {
+public class UserAccount extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -4,8 +4,8 @@ import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.exception.BusinessException;
 import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.domain.Point;
-import org.musinsa.payments.point.domain.User;
-import org.musinsa.payments.point.repository.UserRepository;
+import org.musinsa.payments.point.domain.UserAccount;
+import org.musinsa.payments.point.repository.UserAccountRepository;
 import org.musinsa.payments.point.service.PointService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,12 +31,12 @@ public class PointServiceTest {
     private PointRepository pointRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserAccountRepository userRepository;
 
     @BeforeEach
     public void setUp() {
         // 테스트 사용자 생성
-        userRepository.save(User.builder()
+        userRepository.save(UserAccount.builder()
                 .userId("user1")
                 .name("테스트유저")
                 .maxAccumulationPoint(100000L)
@@ -62,7 +62,7 @@ public class PointServiceTest {
         assertThat(point.getType()).isEqualTo(PointType.FREE);
         assertThat(point.getOrderNo()).isEqualTo("ORD-123");
         
-        User user = userRepository.findByUserId(userId).get();
+        UserAccount user = userRepository.findByUserId(userId).get();
         assertThat(user.getTotalPoint()).isEqualTo(amount);
     }
 
@@ -127,7 +127,7 @@ public class PointServiceTest {
         assertThat(point.isCancelled()).isTrue();
         assertThat(point.getRemainingAmount()).isEqualTo(0L);
         
-        User user = userRepository.findByUserId("user1").get();
+        UserAccount user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(0L);
     }
 
@@ -155,7 +155,7 @@ public class PointServiceTest {
         
         // then
         assertThat(orderNo).isEqualTo("ORD-1");
-        User user = userRepository.findByUserId("user1").get();
+        UserAccount user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(300L);
     }
 
@@ -182,7 +182,7 @@ public class PointServiceTest {
         pointService.cancelUsage(orderNo, 500L);
         
         // then
-        User user = userRepository.findByUserId("user1").get();
+        UserAccount user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(1000L);
     }
 

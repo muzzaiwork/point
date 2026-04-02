@@ -41,7 +41,6 @@ public class PointServiceTest {
                 .name("테스트유저")
                 .maxAccumulationPoint(100000L)
                 .maxRetentionPoint(1000000L)
-                .totalPoint(0L)
                 .build());
     }
 

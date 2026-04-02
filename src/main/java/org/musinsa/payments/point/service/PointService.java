@@ -62,7 +62,7 @@ public class PointService {
         }
 
         // 2. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
-        user.addPoint(amount);
+        user.addPoint(amount, type);
 
         Point point = Point.builder()
                 .userId(userId)
@@ -100,7 +100,7 @@ public class PointService {
         point.cancel();
         
         // 사용자 잔액 차감
-        user.usePoint(amountToCancel);
+        user.cancelAccumulation(amountToCancel, point.getType());
     }
 
     /**
@@ -117,7 +117,10 @@ public class PointService {
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         // 1. 사용자 잔액 체크 및 차감
-        user.usePoint(useAmount);
+        // 전체 잔액 체크만 수행 (상세 차감은 하위 루프에서 유/무료 구분하여 수행)
+        if (user.getTotalPoint() < useAmount) {
+            throw new BusinessException(ResultCode.POINT_SHORTAGE, "보유 포인트가 부족합니다.");
+        }
 
         // 2. 사용 가능한 상세 적립 내역 조회 (수기 지급 우선, 만료일 임박 순)
         List<Point> availablePoints = pointRepository.findAvailablePoints(userId);
@@ -139,6 +142,7 @@ public class PointService {
 
             long canUseFromThis = Math.min(acc.getRemainingAmount(), remainingToUse);
             acc.use(canUseFromThis);
+            user.usePoint(canUseFromThis, acc.getType());
             remainingToUse -= canUseFromThis;
 
             PointUsageDetail detail = PointUsageDetail.builder()
@@ -182,7 +186,8 @@ public class PointService {
         orderCancelRepository.save(orderCancel);
 
         // 3. 사용자 잔액 복구 (한도 체크 포함)
-        user.addPoint(cancelAmount);
+        // user.addPoint(cancelAmount)는 더 이상 사용하지 않음. 
+        // 하위 루프에서 각 적립 타입별로 cancelUsage 호출하여 정밀하게 복구함.
 
         // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
         // 사용의 역순(최근에 사용된 순서)으로 복구 진행
@@ -199,10 +204,13 @@ public class PointService {
             if (acc.isExpired()) {
                 // 만료된 경우 신규 적립 처리 (2999-12-31까지)
                 createNewAccumulationForExpiredCancellation(order.getUserId(), canCancelFromThis, acc.isManual(), acc.getType());
+                // 만료된 경우에도 UserAccount 입장에선 사용 취소(복구) 처리됨
+                user.cancelUsage(canCancelFromThis, acc.getType());
             } else {
                 // 만료되지 않은 경우 기존 적립 건 잔액 복구
                 acc.restore(canCancelFromThis);
                 pointRepository.save(acc);
+                user.cancelUsage(canCancelFromThis, acc.getType());
             }
 
             // 상세 내역에 취소 정보 기록

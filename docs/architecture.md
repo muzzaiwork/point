@@ -9,18 +9,26 @@ graph TD
    User([사용자])
 
    subgraph VPC[AWS VPC]
-      ALB[Application Load Balancer]
-
       subgraph PublicSubnet[Public Subnet]
-         ALB
+         ALB[Application Load Balancer]
       end
 
       subgraph PrivateSubnetApp[Private Subnet - Application]
-         subgraph EKS[EKS Cluster]
-            Service[Kubernetes Service]
-            Pod1[Spring Boot Pod #1]
-            Pod2[Spring Boot Pod #2]
-            Pod3[Spring Boot Pod #3]
+         subgraph EKS[Amazon EKS Cluster]
+            subgraph ControlPlane[Control Plane]
+               APIServer[K8s API Server]
+            end
+
+            subgraph WorkerNodes[Worker Nodes]
+               subgraph NodeGroup[Managed Node Group]
+                  subgraph Namespace[Namespace: default]
+                     Service[Kubernetes Service]
+                     Pod1[Spring Boot Pod #1]
+                     Pod2[Spring Boot Pod #2]
+                     Pod3[Spring Boot Pod #3]
+                  end
+               end
+            end
          end
       end
 
@@ -42,12 +50,14 @@ graph TD
    Pod1 -. Logs .-> CloudWatch
    Pod2 -. Logs .-> CloudWatch
    Pod3 -. Logs .-> CloudWatch
+   APIServer -. Manage .-> NodeGroup
 ```
 
 ## 구성 요소 상세
 
 1. **Compute: Amazon EKS**
-   - Spring Boot 애플리케이션을 컨테이너로 패키징하여 Kubernetes 기반으로 운영합니다.
+   - **Control Plane**: AWS에서 관리하며, API Server, Scheduler, Controller Manager 등을 포함합니다.
+   - **Worker Nodes**: 실제 Spring Boot 애플리케이션 컨테이너가 실행되는 EC2 인스턴스 그룹입니다.
    - Deployment를 통해 여러 Pod를 실행하고, 트래픽 증가 시 Replica 수를 확장할 수 있습니다.
    - 동일 사용자의 포인트 적립/사용/취소 요청이 몰릴 수 있으므로, 애플리케이션은 무상태(Stateless)로 구성하고 정합성은 DB 트랜잭션과 락 전략으로 보장합니다.
 

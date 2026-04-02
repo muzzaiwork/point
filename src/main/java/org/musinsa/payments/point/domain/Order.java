@@ -35,6 +35,8 @@ public class Order {
     @Column(nullable = false)
     private Long cancelledAmount; // 취소된 금액
 
+    private LocalDateTime cancelledAt; // 취소 일시
+
     @Column(nullable = false)
     private LocalDateTime usageDate;
 
@@ -49,5 +51,6 @@ public class Order {
         }
         this.totalAmount -= cancelAmount;
         this.cancelledAmount += cancelAmount;
+        this.cancelledAt = LocalDateTime.now();
     }
 }

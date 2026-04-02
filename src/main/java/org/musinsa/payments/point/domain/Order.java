@@ -9,10 +9,10 @@ import java.time.LocalDateTime;
  * 포인트 사용(주문) 내역 엔티티
  */
 @Entity
-@Table(name = "orders", indexes = {
-        @Index(name = "idx_orders_user_id_usage_date", columnList = "userId, usageDate"),
-        @Index(name = "idx_orders_usage_date", columnList = "usageDate"),
-        @Index(name = "idx_orders_order_no", columnList = "orderNo")
+@Table(name = "`order`", indexes = {
+        @Index(name = "idx_order_user_id_usage_date", columnList = "userId, usageDate"),
+        @Index(name = "idx_order_usage_date", columnList = "usageDate"),
+        @Index(name = "idx_order_order_no", columnList = "orderNo")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

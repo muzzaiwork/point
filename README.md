@@ -11,40 +11,28 @@
 - **과제 요구사항**: [📄 요구사항 문서 보기](docs/요구사항.md)
 - **핵심 목표**: 
   > [!IMPORTANT]
-  > **적립 단위(`pointKey` 단위)의 상태 변화와 그 이력의 일관성을 끝까지 맞추는 시스템**
+  > **🎯 적립 단위(`pointKey` 단위)의 상태 변화와 그 이력의 일관성을 끝까지 맞추는 시스템**
 
 ---
 
 ## 📖 목차
-1. [개발 환경](#1-개발-환경)
-2. [빌드 및 실행 방법](#2-빌드-및-실행-방법)
-3. [접속 정보](#3-접속-정보)
-4. [요구사항 구현 및 설계](#4-요구사항-구현-및-설계)
-5. [핵심 로직 상세](#5-핵심-로직-상세)
-6. [아키텍처 구성](#6-아키텍처-구성)
+1. [빌드 및 실행 방법](#1-빌드-및-실행-방법)
+2. [접속 정보](#2-접속-정보)
+3. [요구사항 구현 및 설계](#3-요구사항-구현-및-설계)
+4. [핵심 로직 상세](#4-핵심-로직-상세)
+5. [아키텍처 구성](#5-아키텍처-구성)
 
 ---
 
-## 🛠 1. 개발 환경
-| 항목 | 기술 스택 |
-| :--- | :--- |
-| **Language** | Java 21 |
-| **Framework** | Spring Boot 3.4.1 |
-| **Database** | H2 (In-memory) |
-| **Build Tool** | Gradle 9.0.0 (Wrapper) |
-| **API Doc** | Springdoc OpenAPI (Swagger) |
+## 🚀 1. 빌드 및 실행 방법
 
----
-
-## 🚀 2. 빌드 및 실행 방법
-
-### 2.1 빌드 방법
+### 1.1 빌드 방법
 터미널에서 프로젝트 루트 디렉토리로 이동 후 아래 명령어를 실행합니다.
 ```bash
 ./gradlew clean build
 ```
 
-### 2.2 실행 방법
+### 1.2 실행 방법
 빌드가 완료된 후 아래 명령어를 실행하여 애플리케이션을 구동합니다.
 ```bash
 ./gradlew bootRun
@@ -56,13 +44,13 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ---
 
-## 🌐 3. 접속 정보
+## 🌐 2. 접속 정보
 
-### 3.1 서비스 접속
+### 2.1 서비스 접속
 - **Swagger UI**: [🔗 http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **API Base URL**: `http://localhost:8080/points`
 
-### 3.2 데이터베이스 접속 (H2 Console)
+### 2.2 데이터베이스 접속 (H2 Console)
 애플리케이션 실행 후 웹 브라우저에서 아래 정보로 데이터베이스에 접속할 수 있습니다.
 - **H2 Console URL**: [🔗 http://localhost:8080/h2-console](http://localhost:8080/h2-console)
 - **JDBC URL**: `jdbc:h2:mem:billing`
@@ -71,13 +59,13 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ---
 
-## 📐 4. 요구사항 구현 및 설계
+## 📐 3. 요구사항 구현 및 설계
 
-### 4.1 데이터베이스 설계 (ERD)
+### 3.1 데이터베이스 설계 (ERD)
 상세한 데이터베이스 설계 및 Mermaid 다이어그램은 아래 문서에서 확인할 수 있습니다.
 - [📊 데이터베이스 설계 (ERD) 상세 문서](docs/erd.md)
 
-### 4.2 API 명세 및 상세 설계
+### 3.2 API 명세 및 상세 설계
 각 API의 상세한 동작 방식, 데이터 흐름, 비즈니스 규칙은 아래 문서를 통해 확인할 수 있습니다.
 
 | 기능 | Endpoint | 상세 문서 |
@@ -89,7 +77,7 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ---
 
-## 💡 5. 핵심 로직 상세
+## 💡 4. 핵심 로직 상세
 
 - **✨ 포인트 사용 우선순위**: 
   - 관리자 수기 지급 포인트를 최우선(`isManual DESC`)으로 사용합니다.
@@ -104,6 +92,6 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ---
 
-## 🏗 6. 아키텍처 구성
+## 🏗 5. 아키텍처 구성
 AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
 - [☁️ AWS 아키텍처 상세 보기 (EKS, ALB, Aurora)](docs/architecture.md)

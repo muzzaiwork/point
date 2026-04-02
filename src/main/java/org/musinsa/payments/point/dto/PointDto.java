@@ -38,6 +38,9 @@ public class PointDto {
 
         @Schema(description = "만료일 수 (미입력 시 2999-12-31)", example = "30")
         private Integer expiryDays;
+
+        @Schema(description = "적립 근거 주문 번호", example = "ORD202604010001")
+        private String orderNo;
     }
 
     /**

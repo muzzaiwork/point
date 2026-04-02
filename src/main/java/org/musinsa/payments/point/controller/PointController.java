@@ -34,7 +34,8 @@ public class PointController {
                 request.getAmount(),
                 request.isManual(),
                 request.getType(),
-                request.getExpiryDays()
+                request.getExpiryDays(),
+                request.getOrderNo()
         );
         return ApiResponse.success("적립 성공", new PointDto.PointResponse(pointKey));
     }

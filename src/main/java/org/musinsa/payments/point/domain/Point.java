@@ -15,7 +15,8 @@ import java.time.LocalDateTime;
 @Table(name = "point", indexes = {
         @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDate, isManual"),
         @Index(name = "idx_point_accumulation_date", columnList = "accumulationDate"),
-        @Index(name = "idx_point_expiry_date", columnList = "expiryDate")
+        @Index(name = "idx_point_expiry_date", columnList = "expiryDate"),
+        @Index(name = "idx_point_order_no", columnList = "orderNo")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -31,6 +32,8 @@ public class Point {
 
     @Column(nullable = false, unique = true)
     private String pointKey; // 고유 키
+
+    private String orderNo; // 적립 근거 주문 번호 (선택 사항)
 
     @Column(nullable = false)
     private Long amount; // 최초 적립 금액

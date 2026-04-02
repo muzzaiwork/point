@@ -7,6 +7,9 @@
 
 ---
 
+### 💼 채용 포지션
+- **Payments Platform Engineer**: [📄 채용 공고 및 안내 보기](docs/채용%20포지션.md)
+
 ### 📑 과제 정보
 - **과제 요구사항**: [📄 요구사항 문서 보기](docs/요구사항.md)
 - **핵심 목표**
@@ -21,6 +24,8 @@
 4. [핵심 로직 상세](#4-핵심-로직-상세)
 5. [시스템 설계 공통 사항](#5-시스템-설계-공통-사항)
 6. [아키텍처 구성](#6-아키텍처-구성)
+7. [동시성 제어 전략](#7-동시성-제어-전략)
+8. [부록: 무신사 도메인 특화 설계 고찰](#8-부록-무신사-도메인-특화-설계-고찰)
 
 ---
 
@@ -63,7 +68,7 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ### 3.1 데이터베이스 설계 (ERD)
 상세한 데이터베이스 설계 및 Mermaid 다이어그램은 아래 문서에서 확인할 수 있습니다.
-- [📊 데이터베이스 설계 (ERD) 상세 문서](docs/erd.md)
+- [📊 데이터베이스 설계 (ERD) 상세 문서](docs/데이터베이스%20설계.md)
 
 ### 3.2 API 명세 및 상세 설계
 모든 API는 아래와 같은 일관된 공통 응답 구조를 가집니다.
@@ -91,7 +96,8 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
     "amount": 1000,
     "isManual": false,
     "type": "FREE",
-    "expiryDays": 365
+    "expiryDays": 365,
+    "orderNo": "ORD202604010001"
   }
   ```
 - **Response (Success)**:
@@ -118,7 +124,7 @@ sequenceDiagram
     participant PointEntity as Point (Entity)
     participant DB
 
-    Client->>Controller: 적립 요청 (userId, amount, type Enum)
+    Client->>Controller: 적립 요청 (userId, amount, orderNo, type Enum)
     Controller->>Service: accumulate()
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
@@ -135,7 +141,7 @@ sequenceDiagram
 | 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
 | :--- | :--- | :--- | :--- | :--- |
 | **USER** | `totalPoint` | `5,000` | `6,000` | 전체 잔액 1,000P 증가 |
-| **POINT** | (신규 추가) | - | `amount: 1000` | 새로운 적립 레코드 생성 |
+| **POINT** | (신규 추가) | - | `amount: 1000, orderNo: ORD202604010001` | 새로운 적립 레코드 생성 |
 
 ##### 주요 비즈니스 규칙
 1. **최소 금액**: 1회 적립 시 최소 1포인트 이상이어야 합니다.
@@ -352,7 +358,7 @@ sequenceDiagram
 - **♻️ 만료 포인트 자동 신규 적립**: 
   - 사용 취소 시점에 이미 만료된 포인트는 원본 복구가 아닌, 정책에 따라 유효기간이 넉넉한 신규 포인트로 자동 적립 처리됩니다.
 - **🧪 시나리오 검증**: 
-  - 요구사항 예시 시나리오에 따른 데이터 변화는 [🔍 시나리오 흐름 문서](docs/scenario-flow.md)에서 확인할 수 있습니다.
+  - 요구사항 예시 시나리오에 따른 데이터 변화는 [🔍 시나리오 흐름 문서](docs/시나리오%20흐름.md)에서 확인할 수 있습니다.
   - 실제 동작은 [💻 시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)를 통해 검증되었습니다.
 
 ---
@@ -417,5 +423,24 @@ private void logResponse(ContentCachingResponseWrapper response, long duration) 
 ---
 
 ## 🏗 6. 아키텍처 구성
-AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
-- [☁️ AWS 아키텍처 상세 보기 (EKS, ALB, Aurora)](docs/architecture.md)
+AWS 기반 아키텍처 구성도는 `docs/아키텍처 구성.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
+- [☁️ AWS 아키텍처 상세 보기 (EKS, ALB, Aurora)](docs/아키텍처%20구성.md)
+
+---
+
+## 🔒 7. 동시성 제어 전략
+데이터 정합성을 보장하기 위한 동시성 제어 전략은 아래 문서에서 확인할 수 있습니다.
+- [🔐 동시성 제어 전략 상세 문서](docs/동시성%20제어.md)
+
+---
+
+## 📎 8. 부록: 무신사 도메인 특화 설계 고찰
+
+본 과제에서는 핵심적인 포인트 비즈니스 로직과 데이터 정합성에 집중하였습니다. 실제 무신사와 같은 대규모 이커머스 환경에서 더욱 견고하고 확장 가능한 시스템을 구축하기 위해 다음과 같은 요소들을 추가로 고려할 수 있습니다.
+
+### 적립 근거(Origin) 추적 및 확장성 있는 ERD 설계
+무신사의 특성상 포인트는 단순히 '금액'만 적립되는 것이 아니라, 다양한 사용자 활동(주문 구매, 리뷰 작성, 등급 혜택, 이벤트 참여 등)에 근거하여 발생합니다. 이를 위해 `Point` 테이블은 어떤 근거에 의해 포인트가 생성되었는지 추적할 수 있는 구조가 필요합니다.
+
+- **적립 원천 식별 (Origin Key)**: `orderNo`(주문 번호), `reviewId`(리뷰 ID), `userGrade`(사용자 등급 정책 ID) 등 각 도메인별 고유 식별자를 외래키 또는 논리적 키로 보유하여 적립의 근거를 명확히 합니다.
+- **다양한 적립 정책 관리**: 등급별 구매 적립률(%), 상품 카테고리별 추가 적립금 등 복잡한 비즈니스 규칙을 `PointPolicy`와 같은 별도 테이블로 관리하고, 적립 시점에 적용된 정책 ID를 기록하여 사후 정산 및 데이터 분석에 활용할 수 있습니다.
+- **확장 가능한 데이터 모델링**: 새로운 적립 수단이 추가되더라도 기존 스키마를 크게 변경하지 않도록 `originType` (ORDER, REVIEW, EVENT 등) 컬럼을 활용한 전략 패턴 기반의 모델 설계를 고려할 수 있습니다.

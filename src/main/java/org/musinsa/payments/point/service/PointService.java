@@ -43,10 +43,11 @@ public class PointService {
      * @param isManual 수기 지급 여부
      * @param type 포인트 타입 (FREE, PAID)
      * @param expiryDays 만료일 수 (미입력 시 2999-12-31)
+     * @param orderNo 적립 근거 주문 번호
      * @return 생성된 적립 포인트의 고유 키
      */
     @Transactional
-    public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays) {
+    public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays, String orderNo) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         User user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
@@ -66,6 +67,7 @@ public class PointService {
         Point point = Point.builder()
                 .userId(userId)
                 .pointKey(generatePointKey())
+                .orderNo(orderNo)
                 .amount(amount)
                 .remainingAmount(amount)
                 .isManual(isManual)

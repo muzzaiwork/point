@@ -36,6 +36,10 @@ public class Order extends BaseEntity {
     @Column(nullable = false)
     private Long cancelledAmount; // 취소된 금액
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderType type; // 주문 타입 (PURCHASE, PARTIAL_CANCEL, TOTAL_CANCEL)
+
     /**
      * 사용 취소 시 총 사용 금액에서 차감한다.
      * @param cancelAmount 취소할 금액
@@ -47,5 +51,11 @@ public class Order extends BaseEntity {
         }
         this.totalAmount -= cancelAmount;
         this.cancelledAmount += cancelAmount;
+        
+        if (this.totalAmount == 0) {
+            this.type = OrderType.TOTAL_CANCEL;
+        } else {
+            this.type = OrderType.PARTIAL_CANCEL;
+        }
     }
 }

@@ -85,7 +85,7 @@ public class PointScenarioTest {
         assertThat(user.getTotalPoint()).isEqualTo(1400L); // 300(기존) + 1100(취소분) = 1400
         
         // 신규 적립된 건이 있는지 확인 (사용 가능한 포인트 목록에서 1400원 확인)
-        Long totalRemainingFromAcc = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
+        Long totalRemainingFromAcc = pointRepository.getValidTotalRemainingAmount("user1");
         assertThat(totalRemainingFromAcc).isEqualTo(1400L); // 500(B) + 900(신규) ? 아님 1400 맞음.
         
         // C는 이제 1200원 사용금액중 100원을 부분취소 할 수 있다. (기존 1100원 취소했으므로 남은건 100원)
@@ -94,7 +94,7 @@ public class PointScenarioTest {
         UserAccount finalUser = userRepository.findByUserId("user1").get();
         assertThat(finalUser.getTotalPoint()).isEqualTo(1500L); // 1400 + 100
         
-        Long finalTotalRemaining = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
+        Long finalTotalRemaining = pointRepository.getValidTotalRemainingAmount("user1");
         assertThat(finalTotalRemaining).isEqualTo(1500L);
     }
 }

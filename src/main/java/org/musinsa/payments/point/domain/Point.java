@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "point", indexes = {
-        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, isManual"),
+        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, isManual, isExpired"),
         @Index(name = "idx_point_accumulation_date", columnList = "regDateTime"),
-        @Index(name = "idx_point_expiry_date", columnList = "expiryDateTime"),
+        @Index(name = "idx_point_expiry_date", columnList = "expiryDateTime, isExpired"),
         @Index(name = "idx_point_order_no", columnList = "orderNo")
 })
 @Getter
@@ -57,6 +57,8 @@ public class Point extends BaseEntity {
 
     private boolean isCancelled; // 적립 취소 여부
 
+    private boolean isExpired; // 만료 여부
+
     /**
      * 포인트를 사용한다 (잔액 차감)
      * @param useAmount 사용 금액
@@ -94,11 +96,19 @@ public class Point extends BaseEntity {
     }
 
     /**
-     * 현재 시점 기준으로 만료 여부를 확인한다.
+     * 포인트를 만료시킨다.
+     */
+    public void expire() {
+        this.isExpired = true;
+        this.remainingAmount = 0L;
+    }
+
+    /**
+     * 현재 시점 기준으로 만료 여부를 확인한다. (레거시 지원용)
      * @param now 기준 시간
      * @return 만료 여부
      */
     public boolean isExpired(LocalDateTime now) {
-        return now.isAfter(expiryDateTime);
+        return this.isExpired || now.isAfter(expiryDateTime);
     }
 }

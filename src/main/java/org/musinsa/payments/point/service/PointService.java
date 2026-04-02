@@ -119,10 +119,8 @@ public class PointService {
         // 1. 사용자 잔액 체크 및 차감
         user.usePoint(useAmount);
 
-        LocalDateTime now = LocalDateTime.now();
-        
         // 2. 사용 가능한 상세 적립 내역 조회 (수기 지급 우선, 만료일 임박 순)
-        List<Point> availablePoints = pointRepository.findAvailablePoints(userId, now);
+        List<Point> availablePoints = pointRepository.findAvailablePoints(userId);
         
         // 3. Order 기록
         Order order = Order.builder()
@@ -130,6 +128,7 @@ public class PointService {
                 .orderNo(orderNo)
                 .totalAmount(useAmount)
                 .cancelledAmount(0L)
+                .type(OrderType.PURCHASE)
                 .build();
         orderRepository.save(order);
 
@@ -188,7 +187,6 @@ public class PointService {
         // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
         // 사용의 역순(최근에 사용된 순서)으로 복구 진행
         List<PointUsageDetail> details = usageDetailRepository.findByOrderOrderByIdDesc(order);
-        LocalDateTime now = LocalDateTime.now();
         long remainingToCancel = cancelAmount;
 
         for (PointUsageDetail detail : details) {
@@ -198,7 +196,7 @@ public class PointService {
             if (canCancelFromThis <= 0) continue;
 
             Point acc = detail.getPoint();
-            if (acc.isExpired(now)) {
+            if (acc.isExpired()) {
                 // 만료된 경우 신규 적립 처리 (2999-12-31까지)
                 createNewAccumulationForExpiredCancellation(order.getUserId(), canCancelFromThis, acc.isManual(), acc.getType());
             } else {

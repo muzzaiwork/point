@@ -56,13 +56,13 @@ public class PointServiceTest {
         
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
-        assertThat(point.getAmount()).isEqualTo(amount);
-        assertThat(point.getRemainingAmount()).isEqualTo(amount);
+        assertThat(point.getAccumulatedPoint()).isEqualTo(amount);
+        assertThat(point.getRemainingPoint()).isEqualTo(amount);
         assertThat(point.getType()).isEqualTo(PointType.FREE);
         assertThat(point.getOrderNo()).isEqualTo("ORD-123");
         
         UserAccount user = userRepository.findByUserId(userId).get();
-        assertThat(user.getTotalPoint()).isEqualTo(amount);
+        assertThat(user.getRemainingPoint()).isEqualTo(amount);
     }
 
     @Test
@@ -124,10 +124,10 @@ public class PointServiceTest {
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
         assertThat(point.isCancelled()).isTrue();
-        assertThat(point.getRemainingAmount()).isEqualTo(0L);
+        assertThat(point.getRemainingPoint()).isEqualTo(0L);
         
         UserAccount user = userRepository.findByUserId("user1").get();
-        assertThat(user.getTotalPoint()).isEqualTo(0L);
+        assertThat(user.getRemainingPoint()).isEqualTo(0L);
     }
 
     @Test
@@ -155,7 +155,7 @@ public class PointServiceTest {
         // then
         assertThat(orderNo).isEqualTo("ORD-1");
         UserAccount user = userRepository.findByUserId("user1").get();
-        assertThat(user.getTotalPoint()).isEqualTo(300L);
+        assertThat(user.getRemainingPoint()).isEqualTo(300L);
     }
 
     @Test
@@ -182,7 +182,7 @@ public class PointServiceTest {
         
         // then
         UserAccount user = userRepository.findByUserId("user1").get();
-        assertThat(user.getTotalPoint()).isEqualTo(1000L);
+        assertThat(user.getRemainingPoint()).isEqualTo(1000L);
     }
 
     @Test

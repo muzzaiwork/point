@@ -28,7 +28,7 @@ public class PointApplication {
                         .name("김원겸")
                         .maxAccumulationPoint(100000L)
                         .maxRetentionPoint(1000000L)
-                        .totalPoint(0L)
+                        .remainingPoint(0L)
                         .build());
                 System.out.println("[DEBUG_LOG] 초기 사용자 'yonkum' 생성 완료");
             }

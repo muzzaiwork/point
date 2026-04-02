@@ -37,10 +37,10 @@ public class Point extends BaseEntity {
     private String orderNo; // 적립 근거 주문 번호 (선택 사항)
 
     @Column(nullable = false)
-    private Long amount; // 최초 적립 금액
+    private Long accumulatedPoint; // 최초 적립 금액
 
     @Column(nullable = false)
-    private Long remainingAmount; // 사용 가능한 잔액
+    private Long remainingPoint; // 사용 가능한 잔액
 
     @Column(nullable = false)
     private boolean isManual; // 수기 지급 여부
@@ -64,7 +64,7 @@ public class Point extends BaseEntity {
      * @param useAmount 사용 금액
      */
     public void use(Long useAmount) {
-        this.remainingAmount -= useAmount;
+        this.remainingPoint -= useAmount;
     }
 
     /**
@@ -72,7 +72,7 @@ public class Point extends BaseEntity {
      * @param restoreAmount 복구 금액
      */
     public void restore(Long restoreAmount) {
-        this.remainingAmount += restoreAmount;
+        this.remainingPoint += restoreAmount;
     }
 
     /**
@@ -80,11 +80,11 @@ public class Point extends BaseEntity {
      * 이미 사용된 금액이 있는 경우 취소할 수 없다.
      */
     public void cancel() {
-        if (!this.amount.equals(this.remainingAmount)) {
+        if (!this.accumulatedPoint.equals(this.remainingPoint)) {
             throw new BusinessException(ResultCode.CONFLICT, "이미 사용된 금액이 있는 경우 적립을 취소할 수 없습니다.");
         }
         this.isCancelled = true;
-        this.remainingAmount = 0L;
+        this.remainingPoint = 0L;
     }
 
     /**
@@ -100,7 +100,7 @@ public class Point extends BaseEntity {
      */
     public void expire() {
         this.isExpired = true;
-        this.remainingAmount = 0L;
+        this.remainingPoint = 0L;
     }
 
     /**

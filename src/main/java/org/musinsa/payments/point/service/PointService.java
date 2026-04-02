@@ -68,8 +68,8 @@ public class PointService {
                 .userId(userId)
                 .pointKey(generatePointKey())
                 .orderNo(orderNo)
-                .amount(amount)
-                .remainingAmount(amount)
+                .accumulatedPoint(amount)
+                .remainingPoint(amount)
                 .isManual(isManual)
                 .type(type)
                 .expiryDateTime(expiryDate)
@@ -94,7 +94,7 @@ public class PointService {
         UserAccount user = userRepository.findByUserIdWithLock(point.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        long amountToCancel = point.getRemainingAmount();
+        long amountToCancel = point.getRemainingPoint();
         
         // 사용된 금액이 있는 경우 취소 불가 로직은 엔티티 내부에서 체크
         point.cancel();
@@ -118,7 +118,7 @@ public class PointService {
 
         // 1. 사용자 잔액 체크 및 차감
         // 전체 잔액 체크만 수행 (상세 차감은 하위 루프에서 유/무료 구분하여 수행)
-        if (user.getTotalPoint() < useAmount) {
+        if (user.getRemainingPoint() < useAmount) {
             throw new BusinessException(ResultCode.POINT_SHORTAGE, "보유 포인트가 부족합니다.");
         }
 
@@ -140,7 +140,7 @@ public class PointService {
         for (Point acc : availablePoints) {
             if (remainingToUse <= 0) break;
 
-            long canUseFromThis = Math.min(acc.getRemainingAmount(), remainingToUse);
+            long canUseFromThis = Math.min(acc.getRemainingPoint(), remainingToUse);
             acc.use(canUseFromThis);
             user.usePoint(canUseFromThis, acc.getType());
             remainingToUse -= canUseFromThis;
@@ -233,8 +233,8 @@ public class PointService {
         Point point = Point.builder()
                 .userId(userId)
                 .pointKey(generatePointKey())
-                .amount(amount)
-                .remainingAmount(amount)
+                .accumulatedPoint(amount)
+                .remainingPoint(amount)
                 .isManual(isManual)
                 .type(type)
                 .expiryDateTime(expiryDate)

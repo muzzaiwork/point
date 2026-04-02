@@ -85,21 +85,21 @@ public class UserAccount extends BaseEntity {
      */
     @Builder.Default
     @Column(nullable = false)
-    private Long totalPoint = 0L;
+    private Long remainingPoint = 0L;
 
     /**
      * 현재 보유 중인 유료 포인트 잔액
      */
     @Builder.Default
     @Column(nullable = false)
-    private Long totalPaidPoint = 0L;
+    private Long remainingPaidPoint = 0L;
 
     /**
      * 현재 보유 중인 무료 포인트 잔액
      */
     @Builder.Default
     @Column(nullable = false)
-    private Long totalFreePoint = 0L;
+    private Long remainingFreePoint = 0L;
 
     /**
      * 포인트 적립
@@ -113,19 +113,19 @@ public class UserAccount extends BaseEntity {
         if (amount > this.maxAccumulationPoint) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "1회 적립 한도(" + this.maxAccumulationPoint + ")를 초과하였습니다.");
         }
-        if (this.totalPoint + amount > this.maxRetentionPoint) {
+        if (this.remainingPoint + amount > this.maxRetentionPoint) {
             throw new BusinessException(ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트(" + this.maxRetentionPoint + ")를 초과할 수 없습니다.");
         }
         
         this.accumulatedPoint += amount;
-        this.totalPoint += amount;
+        this.remainingPoint += amount;
         
         if (PointType.PAID.equals(type)) {
             this.accumulatedPaidPoint += amount;
-            this.totalPaidPoint += amount;
+            this.remainingPaidPoint += amount;
         } else {
             this.accumulatedFreePoint += amount;
-            this.totalFreePoint += amount;
+            this.remainingFreePoint += amount;
         }
     }
 
@@ -135,19 +135,19 @@ public class UserAccount extends BaseEntity {
      * @param type 포인트 타입 (무료/유료)
      */
     public void usePoint(Long amount, PointType type) {
-        if (this.totalPoint < amount) {
+        if (this.remainingPoint < amount) {
             throw new BusinessException(ResultCode.POINT_SHORTAGE, "보유 포인트가 부족합니다.");
         }
         
         this.usedPoint += amount;
-        this.totalPoint -= amount;
+        this.remainingPoint -= amount;
         
         if (PointType.PAID.equals(type)) {
             this.usedPaidPoint += amount;
-            this.totalPaidPoint -= amount;
+            this.remainingPaidPoint -= amount;
         } else {
             this.usedFreePoint += amount;
-            this.totalFreePoint -= amount;
+            this.remainingFreePoint -= amount;
         }
     }
 
@@ -158,14 +158,14 @@ public class UserAccount extends BaseEntity {
      */
     public void cancelAccumulation(Long amount, PointType type) {
         this.accumulatedPoint -= amount;
-        this.totalPoint -= amount;
+        this.remainingPoint -= amount;
         
         if (PointType.PAID.equals(type)) {
             this.accumulatedPaidPoint -= amount;
-            this.totalPaidPoint -= amount;
+            this.remainingPaidPoint -= amount;
         } else {
             this.accumulatedFreePoint -= amount;
-            this.totalFreePoint -= amount;
+            this.remainingFreePoint -= amount;
         }
     }
 
@@ -176,14 +176,14 @@ public class UserAccount extends BaseEntity {
      */
     public void cancelUsage(Long amount, PointType type) {
         this.usedPoint -= amount;
-        this.totalPoint += amount;
+        this.remainingPoint += amount;
         
         if (PointType.PAID.equals(type)) {
             this.usedPaidPoint -= amount;
-            this.totalPaidPoint += amount;
+            this.remainingPaidPoint += amount;
         } else {
             this.usedFreePoint -= amount;
-            this.totalFreePoint += amount;
+            this.remainingFreePoint += amount;
         }
     }
 

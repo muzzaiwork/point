@@ -6,6 +6,7 @@ import lombok.*;
 import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.exception.BusinessException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -22,7 +23,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class Point {
+public class Point extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -52,11 +53,19 @@ public class Point {
     private LocalDateTime accumulationDate;
 
     @Column(nullable = false)
+    private LocalDate accumulationDay;
+
+    @Column(nullable = false)
     private LocalDateTime expiryDate;
+
+    @Column(nullable = false)
+    private LocalDate expiryDay;
 
     private boolean isCancelled; // 적립 취소 여부
 
     private LocalDateTime cancelledDate; // 취소 일시
+
+    private LocalDate cancelledDay; // 취소 일자
 
     /**
      * 포인트를 사용한다 (잔액 차감)
@@ -85,6 +94,7 @@ public class Point {
         this.isCancelled = true;
         this.remainingAmount = 0L;
         this.cancelledDate = LocalDateTime.now();
+        this.cancelledDay = this.cancelledDate.toLocalDate();
     }
 
     /**

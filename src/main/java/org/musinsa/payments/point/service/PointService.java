@@ -74,7 +74,9 @@ public class PointService {
                 .isManual(isManual)
                 .type(type)
                 .accumulationDate(now)
+                .accumulationDay(now.toLocalDate())
                 .expiryDate(expiryDate)
+                .expiryDay(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
 
@@ -132,6 +134,7 @@ public class PointService {
                 .totalAmount(useAmount)
                 .cancelledAmount(0L)
                 .usageDate(now)
+                .usageDay(now.toLocalDate())
                 .build();
         orderRepository.save(order);
 
@@ -150,6 +153,7 @@ public class PointService {
                     .amount(canUseFromThis)
                     .cancelledAmount(0L)
                     .usageDate(now)
+                    .usageDay(now.toLocalDate())
                     .build();
             usageDetailRepository.save(detail);
         }
@@ -183,6 +187,7 @@ public class PointService {
                 .order(order)
                 .cancelAmount(cancelAmount)
                 .cancelledAt(LocalDateTime.now())
+                .cancelledDay(LocalDate.now())
                 .build();
         orderCancelRepository.save(orderCancel);
 
@@ -236,7 +241,9 @@ public class PointService {
                 .isManual(isManual)
                 .type(type)
                 .accumulationDate(now)
+                .accumulationDay(now.toLocalDate())
                 .expiryDate(expiryDate)
+                .expiryDay(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
         pointRepository.save(point);

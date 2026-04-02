@@ -157,7 +157,7 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 ---
 
 #### 4️⃣ 사용 취소 API
-사용된 포인트의 전액 또는 일부를 취소합니다. 이미 만료된 포인트는 신규 적립 처리됩니다. 취소 성공 시 `cancelledAt`(취소 일시)이 기록됩니다.
+사용된 포인트의 전액 또는 일부를 취소합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.
 
 - **Method**: `POST`
 - **Path**: `/points/use/{orderNo}/cancel`

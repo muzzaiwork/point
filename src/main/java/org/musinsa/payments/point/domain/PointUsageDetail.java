@@ -3,6 +3,7 @@ package org.musinsa.payments.point.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -17,7 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class PointUsageDetail {
+public class PointUsageDetail extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -46,6 +47,9 @@ public class PointUsageDetail {
 
     @Column(nullable = false)
     private LocalDateTime usageDate;
+
+    @Column(nullable = false)
+    private LocalDate usageDay;
 
     /**
      * 상세 내역의 취소 금액을 추가한다.

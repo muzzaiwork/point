@@ -3,6 +3,7 @@ package org.musinsa.payments.point.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -18,7 +19,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class Order {
+public class Order extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,10 +36,11 @@ public class Order {
     @Column(nullable = false)
     private Long cancelledAmount; // 취소된 금액
 
-    private LocalDateTime cancelledAt; // 취소 일시
-
     @Column(nullable = false)
     private LocalDateTime usageDate;
+
+    @Column(nullable = false)
+    private LocalDate usageDay;
 
     /**
      * 사용 취소 시 총 사용 금액에서 차감한다.
@@ -51,6 +53,5 @@ public class Order {
         }
         this.totalAmount -= cancelAmount;
         this.cancelledAmount += cancelAmount;
-        this.cancelledAt = LocalDateTime.now();
     }
 }

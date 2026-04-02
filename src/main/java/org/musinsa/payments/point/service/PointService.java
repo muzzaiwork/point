@@ -145,6 +145,7 @@ public class PointService {
             remainingToUse -= canUseFromThis;
 
             PointUsageDetail detail = PointUsageDetail.builder()
+                    .order(order)
                     .point(acc)
                     .amount(canUseFromThis)
                     .cancelledAmount(0L)
@@ -174,11 +175,49 @@ public class PointService {
         User user = userRepository.findByUserIdWithLock(order.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        // 1. 사용 내역 업데이트 (금액 차감 및 취소 금액 누적)
+        // 1. 주문 내역 업데이트 (취소 금액 누적)
         order.cancel(cancelAmount);
 
-        // 2. 사용자 잔액 복구 (한도 체크 포함)
+        // 2. 취소 이력 저장
+        OrderCancel orderCancel = OrderCancel.builder()
+                .order(order)
+                .cancelAmount(cancelAmount)
+                .cancelledAt(LocalDateTime.now())
+                .build();
+        orderCancelRepository.save(orderCancel);
+
+        // 3. 사용자 잔액 복구 (한도 체크 포함)
         user.addPoint(cancelAmount);
+
+        // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
+        // 사용의 역순(최근에 사용된 순서)으로 복구 진행
+        List<PointUsageDetail> details = usageDetailRepository.findByOrderOrderByIdDesc(order);
+        LocalDateTime now = LocalDateTime.now();
+        long remainingToCancel = cancelAmount;
+
+        for (PointUsageDetail detail : details) {
+            if (remainingToCancel <= 0) break;
+
+            long canCancelFromThis = Math.min(detail.getAmount() - detail.getCancelledAmount(), remainingToCancel);
+            if (canCancelFromThis <= 0) continue;
+
+            Point acc = detail.getPoint();
+            if (acc.isExpired(now)) {
+                // 만료된 경우 신규 적립 처리 (2999-12-31까지)
+                createNewAccumulationForExpiredCancellation(order.getUserId(), canCancelFromThis, acc.isManual(), acc.getType());
+            } else {
+                // 만료되지 않은 경우 기존 적립 건 잔액 복구
+                acc.restore(canCancelFromThis);
+                pointRepository.save(acc);
+            }
+
+            // 상세 내역에 취소 정보 기록
+            detail.addCancelledAmount(canCancelFromThis);
+            detail.setOrderCancel(orderCancel);
+            usageDetailRepository.save(detail);
+            
+            remainingToCancel -= canCancelFromThis;
+        }
     }
 
     /**

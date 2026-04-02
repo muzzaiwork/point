@@ -5,7 +5,7 @@
 ## API 명세
 
 - **Method**: `POST`
-- **Path**: `/api/points/use`
+- **Path**: `/points/use`
 - **Description**: 주문에 필요한 포인트를 차감하며, 관리자 수기 포인트 및 만료 임박 포인트가 우선적으로 사용됩니다.
 
 ### 요청 (Request Body)

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
  * 포인트 시스템 API 컨트롤러
  */
 @RestController
-@RequestMapping("/api/points")
+@RequestMapping("/points")
 @RequiredArgsConstructor
 @Tag(name = "Point API", description = "무료 포인트 시스템 API (적립, 사용, 취소)")
 public class PointController {

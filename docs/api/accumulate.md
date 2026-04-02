@@ -5,7 +5,7 @@
 ## API 명세
 
 - **Method**: `POST`
-- **Path**: `/api/points/accumulate`
+- **Path**: `/points/accumulate`
 - **Description**: 사용자에게 포인트를 적립하며, 1회 최대 적립 한도 및 총 보유 한도를 검증합니다.
 
 ### 요청 (Request Body)

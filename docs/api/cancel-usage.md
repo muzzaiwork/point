@@ -5,7 +5,7 @@
 ## API 명세
 
 - **Method**: `POST`
-- **Path**: `/api/points/use/{pointKey}/cancel`
+- **Path**: `/points/use/{pointKey}/cancel`
 - **Description**: 사용된 포인트의 전액 또는 일부를 취소합니다. 이미 만료된 포인트는 원본 적립 건으로 복구하지 않고 신규 적립 처리됩니다.
 
 ### 경로 변수 (Path Variable)

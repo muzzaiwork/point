@@ -29,7 +29,14 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ### 2.3 접속 정보
 - **Swagger UI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- **API Base URL**: `http://localhost:8080/api/points`
+- **API Base URL**: `http://localhost:8080/points`
+
+### 2.4 데이터베이스 접속 정보 (H2 Console)
+애플리케이션 실행 후 웹 브라우저에서 아래 정보로 데이터베이스에 접속할 수 있습니다.
+- **H2 Console URL**: [http://localhost:8080/h2-console](http://localhost:8080/h2-console)
+- **JDBC URL**: `jdbc:h2:mem:billing`
+- **User Name**: `sa`
+- **Password**: (입력 없음)
 
 
 ## 3. 요구사항 구현 내용
@@ -44,12 +51,12 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 | 기능 | Endpoint | 상세 문서 |
 | :--- | :--- | :--- |
-| 포인트 적립 | `POST /api/points/accumulate` | [상세 보기](docs/api/accumulate.md) |
-| 적립 취소 | `POST /api/points/accumulate/{pointKey}/cancel` | [상세 보기](docs/api/cancel-accumulation.md) |
-| 포인트 사용 | `POST /api/points/use` | [상세 보기](docs/api/use.md) |
-| 사용 취소 | `POST /api/points/use/{pointKey}/cancel` | [상세 보기](docs/api/cancel-usage.md) |
+| 포인트 적립 | `POST /points/accumulate` | [상세 보기](docs/api/accumulate.md) |
+| 적립 취소 | `POST /points/accumulate/{pointKey}/cancel` | [상세 보기](docs/api/cancel-accumulation.md) |
+| 포인트 사용 | `POST /points/use` | [상세 보기](docs/api/use.md) |
+| 사용 취소 | `POST /points/use/{pointKey}/cancel` | [상세 보기](docs/api/cancel-usage.md) |
 
-## 5. 핵심 로직 및 시나리오
+## 4. 핵심 로직 및 시나리오
 
 - **포인트 사용 순서**: `ORDER BY p.isManual DESC, p.expiryDate ASC` 쿼리를 통해 관리자 수기 지급 포인트를 최우선으로, 그 다음 만료일이 임박한 순서로 자동 차감됩니다.
 - **1원 단위 추적**: `PointUsageDetail` 테이블을 통해 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 기록합니다.
@@ -58,6 +65,6 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   - [시나리오 흐름 및 DB 상태 변화 상세보기](docs/scenario-flow.md)
   - [시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)
 
-## 6. 아키텍처 구성
+## 5. 아키텍처 구성
 AWS 기반 아키텍처 구성도는 `docs/architecture.md` 파일을 통해 Mermaid 다이어그램으로 확인할 수 있습니다.
 - [AWS 아키텍처 상세 보기 (Mermaid)](docs/architecture.md)

@@ -5,7 +5,7 @@
 ## API 명세
 
 - **Method**: `POST`
-- **Path**: `/api/points/accumulate/{pointKey}/cancel`
+- **Path**: `/points/accumulate/{pointKey}/cancel`
 - **Description**: 적립된 포인트 전액을 취소합니다. 이미 사용된 포인트가 있는 경우 취소할 수 없습니다.
 
 ### 경로 변수 (Path Variable)

@@ -36,6 +36,9 @@ public class PointService {
     private final UserRepository userRepository;
     private final PointKeySequenceRepository sequenceRepository;
 
+    @Value("${point.accumulation.max-limit}")
+    private long maxSystemAccumulationLimit;
+
     /**
      * 포인트를 적립한다.
      * @param userId 사용자 ID
@@ -52,7 +55,12 @@ public class PointService {
         User user = userRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        // 1. 만료일 설정 (미입력 시 2999-12-31)
+        // 1. 시스템 공통 적립 상한 검증
+        if (amount > maxSystemAccumulationLimit) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "시스템 적립 상한(" + maxSystemAccumulationLimit + ")을 초과하였습니다.");
+        }
+
+        // 2. 만료일 설정 (미입력 시 2999-12-31)
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiryDate;
         if (expiryDays != null) {

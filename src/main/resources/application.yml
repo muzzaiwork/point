@@ -15,3 +15,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+point:
+  accumulation:
+    max-limit: 100000

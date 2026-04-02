@@ -16,10 +16,29 @@
 
 ### 응답 (Response Body)
 
+#### [성공]
 ```json
 {
   "code": "SUCCESS",
   "message": "적립 취소 성공",
+  "data": null
+}
+```
+
+#### [실패]
+- **이미 사용됨 (409 Conflict)**
+```json
+{
+  "code": "CONFLICT",
+  "message": "이미 사용된 포인트가 있어 취소할 수 없습니다.",
+  "data": null
+}
+```
+- **찾을 수 없음 (404 Not Found)**
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "해당 적립 건을 찾을 수 없습니다.",
   "data": null
 }
 ```

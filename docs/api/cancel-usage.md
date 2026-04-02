@@ -22,10 +22,29 @@
 
 ### 응답 (Response Body)
 
+#### [성공]
 ```json
 {
   "code": "SUCCESS",
   "message": "사용 취소 성공",
+  "data": null
+}
+```
+
+#### [실패]
+- **취소 가능 금액 초과 (400 Bad Request)**
+```json
+{
+  "code": "BAD_REQUEST",
+  "message": "취소 가능 금액을 초과했습니다.",
+  "data": null
+}
+```
+- **찾을 수 없음 (404 Not Found)**
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "해당 사용 내역을 찾을 수 없습니다.",
   "data": null
 }
 ```

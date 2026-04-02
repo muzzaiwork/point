@@ -67,14 +67,275 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 - [📊 데이터베이스 설계 (ERD) 상세 문서](docs/erd.md)
 
 ### 3.2 API 명세 및 상세 설계
-각 API의 상세한 동작 방식, 데이터 흐름, 비즈니스 규칙은 아래 문서를 통해 확인할 수 있습니다.
+모든 API는 아래와 같은 일관된 공통 응답 구조를 가집니다.
 
-| 기능 | Endpoint | 상세 문서 |
-| :--- | :--- | :--- |
-| **포인트 적립** | `POST /points/accumulate` | [📝 상세보기](docs/api/accumulate.md) |
-| **적립 취소** | `POST /points/accumulate/{pointKey}/cancel` | [📝 상세보기](docs/api/cancel-accumulation.md) |
-| **포인트 사용** | `POST /points/use` | [📝 상세보기](docs/api/use.md) |
-| **사용 취소** | `POST /points/use/{pointKey}/cancel` | [📝 상세보기](docs/api/cancel-usage.md) |
+#### [공통 응답 형식]
+```json
+{
+  "code": "SUCCESS",       // 응답 코드 (SUCCESS, BAD_REQUEST, POINT_SHORTAGE 등)
+  "message": "성공",       // 응답 메시지
+  "data": { ... }          // 실제 응답 데이터 (없을 경우 null)
+}
+```
+
+---
+
+#### 1️⃣ 포인트 적립 API
+사용자에게 포인트를 적립하며, 1회 최대 적립 한도 및 총 보유 한도를 검증합니다.
+
+- **Method**: `POST`
+- **Path**: `/points/accumulate`
+- **Request Body**:
+  ```json
+  {
+    "userId": "user1",
+    "amount": 1000,
+    "isManual": false,
+    "type": "FREE",
+    "expiryDays": 365
+  }
+  ```
+- **Response (Success)**:
+  ```json
+  {
+    "code": "SUCCESS",
+    "message": "적립 성공",
+    "data": "20260331000001" // pointKey
+  }
+  ```
+
+<details>
+<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
+
+##### 처리 흐름 (Sequence Diagram)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UserEntity as User (Entity)
+    participant PointEntity as Point (Entity)
+    participant DB
+
+    Client->>Controller: 적립 요청 (userId, amount, type Enum)
+    Controller->>Service: accumulate()
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Service->>UserEntity: addPoint(amount)
+    Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
+    UserEntity-->>Service: 검증 완료 및 잔액 업데이트
+    Service->>PointEntity: Point 객체 생성
+    Service->>DB: Point 저장 & User 업데이트
+    Service-->>Controller: pointKey 반환
+    Controller-->>Client: 성공 응답
+```
+
+##### 케이스별 데이터 변화 예시
+| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **USER** | `totalPoint` | `5,000` | `6,000` | 전체 잔액 1,000P 증가 |
+| **POINT** | (신규 추가) | - | `amount: 1000` | 새로운 적립 레코드 생성 |
+
+##### 주요 비즈니스 규칙
+1. **최소 금액**: 1회 적립 시 최소 1포인트 이상이어야 합니다.
+2. **1회 최대 한도**: `User` 엔티티에 설정된 `maxAccumulationPoint`를 초과하여 적립할 수 없습니다.
+3. **총 보유 한도**: 적립 후 사용자의 `totalPoint`가 `maxRetentionPoint`를 초과할 경우 적립이 거부됩니다.
+4. **동시성 제어**: 적립 처리 시 `User` 레코드에 비관적 락(`PESSIMISTIC_WRITE`)을 걸어 안전하게 잔액을 업데이트합니다.
+</details>
+
+---
+
+#### 2️⃣ 적립 취소 API
+적립된 포인트 전액을 취소합니다. 이미 사용된 포인트가 있는 경우 취소할 수 없습니다.
+
+- **Method**: `POST`
+- **Path**: `/points/accumulate/{pointKey}/cancel`
+- **Request Body**: (Path Variable 사용)
+- **Response (Success)**:
+  ```json
+  {
+    "code": "SUCCESS",
+    "message": "적립 취소 성공",
+    "data": null
+  }
+  ```
+
+<details>
+<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
+
+##### 처리 흐름 (Sequence Diagram)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant PointEntity as Point (Entity)
+    participant UserEntity as User (Entity)
+
+    Client->>Controller: 적립 취소 요청 (pointKey)
+    Controller->>Service: cancelAccumulation(pointKey)
+    Service->>DB: Point 정보 조회
+    DB-->>Service: Point 객체 반환
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Service->>PointEntity: cancel()
+    Note over PointEntity: 1. 이미 취소되었는지 검증<br/>2. 일부라도 사용되었는지 검증
+    PointEntity-->>Service: isCancelled=true, remainingAmount=0 업데이트
+    Service->>UserEntity: usePoint(cancelAmount)
+    UserEntity-->>Service: 사용자 잔액 업데이트 완료
+    Service->>DB: Point & User 저장
+    Service-->>Controller: 성공 반환
+    Controller-->>Client: 성공 응답
+```
+
+##### 케이스별 데이터 변화 예시
+| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **POINT** | `isCancelled` | `false` | `true` | 취소 완료 |
+| **POINT** | `remainingAmount` | `1,000` | `0` | 해당 적립 건의 잔액 0 |
+| **USER** | `totalPoint` | `6,000` | `5,000` | 전체 잔액에서 회수 |
+
+##### 주요 비즈니스 규칙
+1. **사용 여부 확인**: 적립된 금액 중 일부라도 사용된 경우( `remainingAmount < amount` ) 적립 취소가 불가능합니다.
+2. **전체 잔액 반영**: 취소 시 사용자의 `totalPoint`에서 취소되는 적립 건의 잔액만큼 차감합니다.
+3. **동시성 제어**: 사용자 레코드에 비관적 락을 획득하여 데이터 정합성을 보장합니다.
+</details>
+
+---
+
+#### 3️⃣ 포인트 사용 API
+주문에 필요한 포인트를 차감하며, 관리자 수기 포인트 및 만료 임박 포인트가 우선적으로 사용됩니다.
+
+- **Method**: `POST`
+- **Path**: `/points/use`
+- **Request Body**:
+  ```json
+  {
+    "userId": "user1",
+    "orderNo": "A1234",
+    "amount": 500
+  }
+  ```
+- **Response (Success)**:
+  ```json
+  {
+    "code": "SUCCESS",
+    "message": "사용 성공",
+    "data": "20260331000002" // pointKey
+  }
+  ```
+
+<details>
+<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
+
+##### 처리 흐름 (Sequence Diagram)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant UserEntity as User (Entity)
+    participant PointEntity as Point (Entity)
+    participant UsageEntity as PointUsage (Entity)
+    participant DetailEntity as PointUsageDetail (Entity)
+
+    Client->>Controller: 포인트 사용 요청 (userId, amount)
+    Controller->>Service: use()
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Service->>UserEntity: usePoint(amount)
+    Service->>DB: 사용 가능한 포인트 목록 조회 (isManual DESC, expiryDate ASC)
+    Service->>UsageEntity: PointUsage 생성
+    loop 사용 금액 소진 시까지
+        Service->>PointEntity: subtractAmount(subAmount)
+        Service->>DetailEntity: PointUsageDetail 생성 (1원 단위 연결)
+    end
+    Service->>DB: 모든 엔티티 저장 & User 업데이트
+    Service-->>Controller: 사용 pointKey 반환
+```
+
+##### 케이스별 데이터 변화 예시
+| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **USER** | `totalPoint` | `1,500` | `300` | 전체 잔액 차감 (1,200P 사용 시) |
+| **POINT (B)** | `remainingAmount` | `500` | `0` | **1순위**: 수기 포인트 소진 |
+| **POINT (A)** | `remainingAmount` | `1,000` | `300` | **2순위**: 일반 포인트 차감 |
+
+##### 주요 비즈니스 규칙
+1. **사용 우선순위**: 1순위 관리자 수기 지급 포인트, 2순위 만료일 임박 순서로 차감됩니다.
+2. **잔액 검증**: 사용자의 `totalPoint`가 요청 금액보다 적으면 즉시 실패 처리합니다.
+3. **추적성**: `PointUsageDetail`에 어느 적립 건에서 얼마가 차감되었는지 1원 단위까지 기록합니다.
+</details>
+
+---
+
+#### 4️⃣ 사용 취소 API
+사용된 포인트의 전액 또는 일부를 취소합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.
+
+- **Method**: `POST`
+- **Path**: `/points/use/{pointKey}/cancel`
+- **Request Body**:
+  ```json
+  {
+    "amount": 500
+  }
+  ```
+- **Response (Success)**:
+  ```json
+  {
+    "code": "SUCCESS",
+    "message": "사용 취소 성공",
+    "data": null
+  }
+  ```
+
+<details>
+<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
+
+##### 처리 흐름 (Sequence Diagram)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant UsageEntity as PointUsage (Entity)
+    participant DetailEntity as PointUsageDetail (Entity)
+    participant PointEntity as Point (Entity)
+    participant UserEntity as User (Entity)
+
+    Client->>Controller: 사용 취소 요청 (pointKey, amount)
+    Controller->>Service: cancelUsage()
+    Service->>DB: PointUsage(사용 마스터) 조회
+    Service->>UsageEntity: cancel(cancelAmount)
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    Service->>DB: 사용 상세 내역(Detail) 조회
+    loop 남은 취소 금액 소진 시까지
+        alt 만료 안 됨
+            Service->>PointEntity: addRemainingAmount(subAmount)
+        else 이미 만료됨
+            Service->>PointEntity: 신규 적립 생성
+        end
+        Service->>DetailEntity: cancel(subAmount)
+    end
+    Service->>UserEntity: addPoint(amount)
+    Service->>DB: 모든 변경 사항 저장
+```
+
+##### 케이스별 데이터 변화 예시
+| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
+| :--- | :--- | :--- | :--- | :--- |
+| **USER** | `totalPoint` | `300` | `1,400` | 전체 잔액 1,100P 복구 |
+| **POINT (B)** | `remainingAmount` | `0` | `400` | B에서 사용한 500P 중 400P 복구 (미만료) |
+| **POINT (E)** | (신규 추가) | - | `amount: 700` | A에서 사용한 700P는 만료되어 신규 적립 |
+
+##### 주요 비즈니스 규칙
+1. **만료 처리**: 사용 취소 시점에 이미 만료된 포인트는 유효기간이 2999-12-31인 **신규 포인트로 적립**됩니다.
+2. **부분 취소**: 전체 금액이 아닌 일부 금액만 취소할 수 있으며, 여러 번에 나누어 취소도 가능합니다.
+3. **추적성 유지**: 어느 적립 건이 복구되거나 신규 적립되었는지를 `PointUsageDetail`을 통해 관리합니다.
+</details>
 
 ---
 

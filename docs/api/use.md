@@ -18,6 +18,7 @@
 
 ### 응답 (Response Body)
 
+#### [성공]
 ```json
 {
   "code": "SUCCESS",
@@ -26,6 +27,24 @@
 }
 ```
 - `data`: 생성된 포인트 사용 건의 고유 식별 키 (`pointKey`)
+
+#### [실패]
+- **잔액 부족 (409 Conflict)**
+```json
+{
+  "code": "POINT_SHORTAGE",
+  "message": "포인트 잔액이 부족합니다.",
+  "data": null
+}
+```
+- **파라미터 오류 (400 Bad Request)**
+```json
+{
+  "code": "INVALID_PARAMETER",
+  "message": "사용 금액은 최소 1P 이상이어야 합니다.",
+  "data": null
+}
+```
 
 ---
 

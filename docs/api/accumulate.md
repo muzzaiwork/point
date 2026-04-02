@@ -20,6 +20,7 @@
 
 ### 응답 (Response Body)
 
+#### [성공]
 ```json
 {
   "code": "SUCCESS",
@@ -28,6 +29,24 @@
 }
 ```
 - `data`: 생성된 포인트 적립 건의 고유 식별 키 (`pointKey`)
+
+#### [실패]
+- **한도 초과 (409 Conflict)**
+```json
+{
+  "code": "LIMIT_EXCEEDED",
+  "message": "개인별 최대 보유 가능 포인트 초과",
+  "data": null
+}
+```
+- **파라미터 오류 (400 Bad Request)**
+```json
+{
+  "code": "INVALID_PARAMETER",
+  "message": "적립 금액은 최소 1P 이상이어야 합니다.",
+  "data": null
+}
+```
 
 ---
 

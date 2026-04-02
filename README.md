@@ -9,8 +9,7 @@
 
 ### 📑 과제 정보
 - **과제 요구사항**: [📄 요구사항 문서 보기](docs/요구사항.md)
-- **핵심 목표**: 
-  > [!IMPORTANT]
+- **핵심 목표**
   > **🎯 적립 단위(`pointKey` 단위)의 상태 변화와 그 이력의 일관성을 끝까지 맞추는 시스템**
 
 ---
@@ -100,7 +99,9 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   {
     "code": "SUCCESS",
     "message": "적립 성공",
-    "data": "20260331000001" // pointKey
+    "data": {
+      "pointKey": "20260331000001"
+    }
   }
   ```
 
@@ -222,7 +223,9 @@ sequenceDiagram
   {
     "code": "SUCCESS",
     "message": "사용 성공",
-    "data": "20260331000002" // pointKey
+    "data": {
+      "pointKey": "20260331000002"
+    }
   }
   ```
 

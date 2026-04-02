@@ -28,7 +28,7 @@ public class PointController {
      */
     @PostMapping("/accumulate")
     @Operation(summary = "포인트 적립", description = "사용자에게 포인트를 적립합니다. (1회 최대 10만, 개인별 최대 100만 보유 가능)")
-    public ApiResponse<String> accumulate(@Valid @RequestBody PointDto.AccumulateRequest request) {
+    public ApiResponse<PointDto.PointResponse> accumulate(@Valid @RequestBody PointDto.AccumulateRequest request) {
         String pointKey = pointService.accumulate(
                 request.getUserId(),
                 request.getAmount(),
@@ -36,7 +36,7 @@ public class PointController {
                 request.getType(),
                 request.getExpiryDays()
         );
-        return ApiResponse.success("적립 성공", pointKey);
+        return ApiResponse.success("적립 성공", new PointDto.PointResponse(pointKey));
     }
 
     /**
@@ -59,13 +59,13 @@ public class PointController {
      */
     @PostMapping("/use")
     @Operation(summary = "포인트 사용", description = "주문 시 포인트를 사용합니다. 수기 지급 포인트가 우선 사용되며, 만료일이 짧은 순서로 차감됩니다.")
-    public ApiResponse<String> use(@Valid @RequestBody PointDto.UseRequest request) {
+    public ApiResponse<PointDto.PointResponse> use(@Valid @RequestBody PointDto.UseRequest request) {
         String pointKey = pointService.use(
                 request.getUserId(),
                 request.getOrderNo(),
                 request.getAmount()
         );
-        return ApiResponse.success("사용 성공", pointKey);
+        return ApiResponse.success("사용 성공", new PointDto.PointResponse(pointKey));
     }
 
     /**

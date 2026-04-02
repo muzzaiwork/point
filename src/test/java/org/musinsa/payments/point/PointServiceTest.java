@@ -101,12 +101,13 @@ public class PointServiceTest {
     public void accumulateFail_MaxRetention() {
         // given
         String userId = "user1";
-        pointService.accumulate(userId, 100000L, false, PointType.FREE, 365);
-        pointService.accumulate(userId, 100000L, false, PointType.FREE, 365);
-        // ... (사용자의 기본 보유 한도는 100만으로 설정되어 있음)
+        // 10만씩 10번 적립 = 100만
+        for (int i = 0; i < 10; i++) {
+            pointService.accumulate(userId, 100000L, false, PointType.FREE, 365);
+        }
         
         // when & then (보유 한도 100만 초과 시도)
-        assertThatThrownBy(() -> pointService.accumulate(userId, 1000000L, false, PointType.FREE, 365))
+        assertThatThrownBy(() -> pointService.accumulate(userId, 1L, false, PointType.FREE, 365))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("resultCode", ResultCode.LIMIT_EXCEEDED);
     }

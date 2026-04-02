@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -71,5 +72,17 @@ public class PointDto {
         @Min(value = 1, message = "취소 금액은 최소 1P 이상이어야 합니다.")
         @Schema(description = "취소 금액 (부분 취소 가능)", example = "100")
         private Long amount;
+    }
+
+    /**
+     * 포인트 응답 객체 (pointKey 반환)
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "포인트 결과 응답")
+    public static class PointResponse {
+        @Schema(description = "포인트 식별 키", example = "20260401000001")
+        private String pointKey;
     }
 }

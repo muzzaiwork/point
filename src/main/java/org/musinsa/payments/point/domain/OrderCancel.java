@@ -28,10 +28,4 @@ public class OrderCancel extends BaseEntity {
 
     @Column(nullable = false)
     private Long cancelAmount;
-
-    @Column(nullable = false)
-    private LocalDateTime cancelledAt;
-
-    @Column(nullable = false)
-    private LocalDate cancelledDay;
 }

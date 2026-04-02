@@ -3,7 +3,6 @@ package org.musinsa.payments.point.service;
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.domain.*;
-import org.musinsa.payments.point.dto.PointDto;
 import org.musinsa.payments.point.exception.BusinessException;
 import org.musinsa.payments.point.repository.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -73,10 +72,8 @@ public class PointService {
                 .remainingAmount(amount)
                 .isManual(isManual)
                 .type(type)
-                .accumulationDate(now)
-                .accumulationDay(now.toLocalDate())
-                .expiryDate(expiryDate)
-                .expiryDay(expiryDate.toLocalDate())
+                .expiryDateTime(expiryDate)
+                .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
 
@@ -133,8 +130,6 @@ public class PointService {
                 .orderNo(orderNo)
                 .totalAmount(useAmount)
                 .cancelledAmount(0L)
-                .usageDate(now)
-                .usageDay(now.toLocalDate())
                 .build();
         orderRepository.save(order);
 
@@ -152,8 +147,6 @@ public class PointService {
                     .point(acc)
                     .amount(canUseFromThis)
                     .cancelledAmount(0L)
-                    .usageDate(now)
-                    .usageDay(now.toLocalDate())
                     .build();
             usageDetailRepository.save(detail);
         }
@@ -186,8 +179,6 @@ public class PointService {
         OrderCancel orderCancel = OrderCancel.builder()
                 .order(order)
                 .cancelAmount(cancelAmount)
-                .cancelledAt(LocalDateTime.now())
-                .cancelledDay(LocalDate.now())
                 .build();
         orderCancelRepository.save(orderCancel);
 
@@ -240,10 +231,8 @@ public class PointService {
                 .remainingAmount(amount)
                 .isManual(isManual)
                 .type(type)
-                .accumulationDate(now)
-                .accumulationDay(now.toLocalDate())
-                .expiryDate(expiryDate)
-                .expiryDay(expiryDate.toLocalDate())
+                .expiryDateTime(expiryDate)
+                .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
         pointRepository.save(point);

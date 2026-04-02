@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "`order`", indexes = {
-        @Index(name = "idx_order_user_id_usage_date", columnList = "userId, usageDate"),
-        @Index(name = "idx_order_usage_date", columnList = "usageDate"),
+        @Index(name = "idx_order_user_id_usage_date", columnList = "userId, regDateTime"),
+        @Index(name = "idx_order_usage_date", columnList = "regDateTime"),
         @Index(name = "idx_order_order_no", columnList = "orderNo")
 })
 @Getter
@@ -35,12 +35,6 @@ public class Order extends BaseEntity {
 
     @Column(nullable = false)
     private Long cancelledAmount; // 취소된 금액
-
-    @Column(nullable = false)
-    private LocalDateTime usageDate;
-
-    @Column(nullable = false)
-    private LocalDate usageDay;
 
     /**
      * 사용 취소 시 총 사용 금액에서 차감한다.

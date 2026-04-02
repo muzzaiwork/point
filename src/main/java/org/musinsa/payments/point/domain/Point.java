@@ -14,9 +14,9 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "point", indexes = {
-        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDate, isManual"),
-        @Index(name = "idx_point_accumulation_date", columnList = "accumulationDate"),
-        @Index(name = "idx_point_expiry_date", columnList = "expiryDate"),
+        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, isManual"),
+        @Index(name = "idx_point_accumulation_date", columnList = "regDateTime"),
+        @Index(name = "idx_point_expiry_date", columnList = "expiryDateTime"),
         @Index(name = "idx_point_order_no", columnList = "orderNo")
 })
 @Getter
@@ -50,22 +50,12 @@ public class Point extends BaseEntity {
     private PointType type; // 포인트 타입 (FREE, PAID)
 
     @Column(nullable = false)
-    private LocalDateTime accumulationDate;
+    private LocalDateTime expiryDateTime;
 
     @Column(nullable = false)
-    private LocalDate accumulationDay;
-
-    @Column(nullable = false)
-    private LocalDateTime expiryDate;
-
-    @Column(nullable = false)
-    private LocalDate expiryDay;
+    private LocalDate expiryDate;
 
     private boolean isCancelled; // 적립 취소 여부
-
-    private LocalDateTime cancelledDate; // 취소 일시
-
-    private LocalDate cancelledDay; // 취소 일자
 
     /**
      * 포인트를 사용한다 (잔액 차감)
@@ -93,16 +83,14 @@ public class Point extends BaseEntity {
         }
         this.isCancelled = true;
         this.remainingAmount = 0L;
-        this.cancelledDate = LocalDateTime.now();
-        this.cancelledDay = this.cancelledDate.toLocalDate();
     }
 
     /**
      * 만료일을 설정한다.
      * @param expiryDate 새로운 만료일
      */
-    public void setExpiryDate(LocalDateTime expiryDate) {
-        this.expiryDate = expiryDate;
+    public void setExpiryDateTime(LocalDateTime expiryDate) {
+        this.expiryDateTime = expiryDate;
     }
 
     /**
@@ -111,6 +99,6 @@ public class Point extends BaseEntity {
      * @return 만료 여부
      */
     public boolean isExpired(LocalDateTime now) {
-        return now.isAfter(expiryDate);
+        return now.isAfter(expiryDateTime);
     }
 }

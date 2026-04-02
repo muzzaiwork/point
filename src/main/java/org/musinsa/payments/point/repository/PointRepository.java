@@ -12,11 +12,11 @@ import java.util.Optional;
 public interface PointRepository extends JpaRepository<Point, Long> {
     Optional<Point> findByPointKey(String pointKey);
 
-    @Query("SELECT SUM(p.remainingAmount) FROM Point p WHERE p.userId = :userId AND p.expiryDate > :now AND p.isCancelled = false")
+    @Query("SELECT SUM(p.remainingAmount) FROM Point p WHERE p.userId = :userId AND p.expiryDateTime > :now AND p.isCancelled = false")
     Long getValidTotalRemainingAmount(@Param("userId") String userId, @Param("now") LocalDateTime now);
 
     // 수기 지급 우선, 만료일 임박 순
-    @Query("SELECT p FROM Point p WHERE p.userId = :userId AND p.remainingAmount > 0 AND p.expiryDate > :now AND p.isCancelled = false " +
-           "ORDER BY p.isManual DESC, p.expiryDate ASC")
+    @Query("SELECT p FROM Point p WHERE p.userId = :userId AND p.remainingAmount > 0 AND p.expiryDateTime > :now AND p.isCancelled = false " +
+           "ORDER BY p.isManual DESC, p.expiryDateTime ASC")
     List<Point> findAvailablePoints(@Param("userId") String userId, @Param("now") LocalDateTime now);
 }

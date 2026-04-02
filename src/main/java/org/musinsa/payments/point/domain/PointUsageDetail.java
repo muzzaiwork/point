@@ -45,12 +45,6 @@ public class PointUsageDetail extends BaseEntity {
         this.orderCancel = orderCancel;
     }
 
-    @Column(nullable = false)
-    private LocalDateTime usageDate;
-
-    @Column(nullable = false)
-    private LocalDate usageDay;
-
     /**
      * 상세 내역의 취소 금액을 추가한다.
      * @param amount 추가할 취소 금액

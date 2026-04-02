@@ -65,12 +65,12 @@ public class PointScenarioTest {
         assertThat(accB.getRemainingAmount()).isEqualTo(300L);
         
         // 4. A의 적립이 만료되었다.
-        accA.setExpiryDate(LocalDateTime.now().minusDays(1));
+        accA.setExpiryDateTime(LocalDateTime.now().minusDays(1));
         pointRepository.saveAndFlush(accA);
         
         // 만료 데이터 상태 확인 (테스트 코드에서 명시적으로 보여줌)
         Point expiredAccA = pointRepository.findByPointKey(pointKeyA).get();
-        assertThat(expiredAccA.getExpiryDate()).isBefore(LocalDateTime.now());
+        assertThat(expiredAccA.getExpiryDateTime()).isBefore(LocalDateTime.now());
         assertThat(expiredAccA.isExpired(LocalDateTime.now())).isTrue();
         
         // 5. C의 사용금액 1200원 중 1100원을 부분 사용취소 한다 (총 잔액 300 -> 1400 원)

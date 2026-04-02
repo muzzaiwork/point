@@ -78,7 +78,7 @@ public class PointServiceTest {
         
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
-        assertThat(point.getExpiryDate()).isEqualTo(LocalDateTime.of(2999, 12, 31, 23, 59, 59));
+        assertThat(point.getExpiryDateTime()).isEqualTo(LocalDateTime.of(2999, 12, 31, 23, 59, 59));
     }
 
     @Test
@@ -94,7 +94,7 @@ public class PointServiceTest {
         
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
-        assertThat(point.getExpiryDate()).isAfter(LocalDateTime.now().plusYears(20));
+        assertThat(point.getExpiryDateTime()).isAfter(LocalDateTime.now().plusYears(20));
     }
 
     @Test
@@ -126,7 +126,6 @@ public class PointServiceTest {
         Point point = pointRepository.findByPointKey(pointKey).get();
         assertThat(point.isCancelled()).isTrue();
         assertThat(point.getRemainingAmount()).isEqualTo(0L);
-        assertThat(point.getCancelledDate()).isNotNull();
         
         User user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(0L);

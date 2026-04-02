@@ -152,10 +152,10 @@ public class PointServiceTest {
         pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
         
         // when
-        String usageKey = pointService.use("user1", "ORD-1", 700L);
+        String orderNo = pointService.use("user1", "ORD-1", 700L);
         
         // then
-        assertThat(usageKey).isNotNull();
+        assertThat(orderNo).isEqualTo("ORD-1");
         User user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(300L);
     }
@@ -177,10 +177,10 @@ public class PointServiceTest {
     public void cancelUsageSuccess_NotExpired() {
         // given
         pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
-        String usageKey = pointService.use("user1", "ORD-1", 500L);
+        String orderNo = pointService.use("user1", "ORD-1", 500L);
         
         // when
-        pointService.cancelUsage(usageKey, 500L);
+        pointService.cancelUsage(orderNo, 500L);
         
         // then
         User user = userRepository.findByUserId("user1").get();
@@ -192,10 +192,10 @@ public class PointServiceTest {
     public void cancelUsageFail_AmountExceeded() {
         // given
         pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
-        String usageKey = pointService.use("user1", "ORD-1", 500L);
+        String orderNo = pointService.use("user1", "ORD-1", 500L);
         
         // when & then
-        assertThatThrownBy(() -> pointService.cancelUsage(usageKey, 600L))
+        assertThatThrownBy(() -> pointService.cancelUsage(orderNo, 600L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("resultCode", ResultCode.BAD_REQUEST);
     }

@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "point_usage_detail", indexes = {
-        @Index(name = "idx_pud_point_usage_id", columnList = "point_usage_id"),
+        @Index(name = "idx_pud_order_id", columnList = "order_id"),
         @Index(name = "idx_pud_point_accumulation_id", columnList = "point_accumulation_id")
 })
 @Getter
@@ -23,8 +23,8 @@ public class PointUsageDetail {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "point_usage_id")
-    private PointUsage pointUsage;
+    @JoinColumn(name = "order_id")
+    private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "point_accumulation_id")

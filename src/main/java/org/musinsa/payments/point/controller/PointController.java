@@ -56,31 +56,31 @@ public class PointController {
     /**
      * 포인트 사용
      * @param request 사용 요청 정보
-     * @return 사용 내역 식별 키(pointKey)
+     * @return 사용 내역 식별 키(orderNo)
      */
     @PostMapping("/use")
     @Operation(summary = "포인트 사용", description = "주문 시 포인트를 사용합니다. 수기 지급 포인트가 우선 사용되며, 만료일이 짧은 순서로 차감됩니다.")
     public ApiResponse<PointDto.PointResponse> use(@Valid @RequestBody PointDto.UseRequest request) {
-        String pointKey = pointService.use(
+        String orderNo = pointService.use(
                 request.getUserId(),
                 request.getOrderNo(),
                 request.getAmount()
         );
-        return ApiResponse.success("사용 성공", new PointDto.PointResponse(pointKey));
+        return ApiResponse.success("사용 성공", new PointDto.PointResponse(orderNo));
     }
 
     /**
      * 사용 취소
-     * @param pointKey 사용 시 발급된 식별 키
+     * @param orderNo 사용 시 사용된 주문 번호
      * @param request 취소 요청 정보 (금액 포함)
      * @return 취소 결과 메시지
      */
-    @PostMapping("/use/{pointKey}/cancel")
+    @PostMapping("/use/{orderNo}/cancel")
     @Operation(summary = "사용 취소", description = "사용한 포인트를 취소(복구)합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.")
     public ApiResponse<Void> cancelUsage(
-            @Parameter(description = "사용 시 발급된 pointKey", example = "20260401000002") @PathVariable String pointKey,
+            @Parameter(description = "사용 시 사용된 orderNo", example = "A1234") @PathVariable String orderNo,
             @Valid @RequestBody PointDto.CancelUsageRequest request) {
-        pointService.cancelUsage(pointKey, request.getAmount());
+        pointService.cancelUsage(orderNo, request.getAmount());
         return ApiResponse.success("사용 취소 성공");
     }
 }

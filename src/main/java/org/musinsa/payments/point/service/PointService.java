@@ -5,14 +5,14 @@ import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointKeySequence;
 import org.musinsa.payments.point.domain.PointType;
-import org.musinsa.payments.point.domain.PointUsage;
+import org.musinsa.payments.point.domain.Order;
 import org.musinsa.payments.point.domain.PointUsageDetail;
 import org.musinsa.payments.point.domain.User;
 import org.musinsa.payments.point.exception.BusinessException;
 import org.musinsa.payments.point.repository.PointKeySequenceRepository;
 import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.PointUsageDetailRepository;
-import org.musinsa.payments.point.repository.PointUsageRepository;
+import org.musinsa.payments.point.repository.OrderRepository;
 import org.musinsa.payments.point.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,7 @@ import java.util.List;
 public class PointService {
 
     private final PointRepository pointRepository;
-    private final PointUsageRepository usageRepository;
+    private final OrderRepository orderRepository;
     private final PointUsageDetailRepository usageDetailRepository;
     private final UserRepository userRepository;
     private final PointKeySequenceRepository sequenceRepository;
@@ -116,7 +116,7 @@ public class PointService {
      * @param userId 사용자 ID
      * @param orderNo 주문 번호
      * @param useAmount 사용 금액
-     * @return 생성된 사용 내역의 고유 키
+     * @return 주문 번호
      */
     @Transactional
     public String use(String userId, String orderNo, Long useAmount) {
@@ -132,16 +132,15 @@ public class PointService {
         // 2. 사용 가능한 상세 적립 내역 조회 (수기 지급 우선, 만료일 임박 순)
         List<Point> availablePoints = pointRepository.findAvailablePoints(userId, now);
         
-        // 3. PointUsage 기록
-        PointUsage usage = PointUsage.builder()
+        // 3. Order 기록
+        Order order = Order.builder()
                 .userId(userId)
                 .orderNo(orderNo)
-                .pointKey(generatePointKey())
                 .totalAmount(useAmount)
                 .cancelledAmount(0L)
                 .usageDate(now)
                 .build();
-        usageRepository.save(usage);
+        orderRepository.save(order);
 
         // 4. 포인트 차감 및 상세 내역 기록 (1원 단위 추적 가능)
         long remainingToUse = useAmount;
@@ -153,7 +152,7 @@ public class PointService {
             remainingToUse -= canUseFromThis;
 
             PointUsageDetail detail = PointUsageDetail.builder()
-                    .pointUsage(usage)
+                    .order(order)
                     .point(acc)
                     .amount(canUseFromThis)
                     .cancelledAmount(0L)
@@ -162,34 +161,34 @@ public class PointService {
             usageDetailRepository.save(detail);
         }
 
-        return usage.getPointKey();
+        return order.getOrderNo();
     }
 
     /**
      * 사용을 취소한다.
-     * @param usagePointKey 사용 내역의 고유 키
+     * @param orderNo 주문 번호
      * @param cancelAmount 취소할 금액
      */
     @Transactional
-    public void cancelUsage(String usagePointKey, Long cancelAmount) {
-        PointUsage usage = usageRepository.findByPointKey(usagePointKey)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용 내역을 찾을 수 없습니다."));
+    public void cancelUsage(String orderNo, Long cancelAmount) {
+        Order order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "주문 내역을 찾을 수 없습니다."));
 
-        if (cancelAmount > usage.getTotalAmount()) {
+        if (cancelAmount > order.getTotalAmount()) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "취소 금액이 사용 금액을 초과할 수 없습니다.");
         }
 
         // 0. 사용자 조회 및 락 획득
-        User user = userRepository.findByUserIdWithLock(usage.getUserId())
+        User user = userRepository.findByUserIdWithLock(order.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
         // 1. 사용 내역 업데이트 (금액 차감 및 취소 금액 누적)
-        usage.cancel(cancelAmount);
+        order.cancel(cancelAmount);
 
         // 2. 사용자 잔액 복구 (한도 체크 포함)
         user.addPoint(cancelAmount);
 
-        List<PointUsageDetail> details = usageDetailRepository.findByPointUsage(usage);
+        List<PointUsageDetail> details = usageDetailRepository.findByOrder(order);
         LocalDateTime now = LocalDateTime.now();
 
         long remainingToCancel = cancelAmount;
@@ -205,7 +204,7 @@ public class PointService {
             Point acc = detail.getPoint();
             
             if (acc.isExpired(now)) {
-                createNewAccumulationForExpiredCancellation(usage.getUserId(), amountToRestore, acc.isManual(), acc.getType());
+                createNewAccumulationForExpiredCancellation(order.getUserId(), amountToRestore, acc.isManual(), acc.getType());
             } else {
                 acc.restore(amountToRestore);
             }

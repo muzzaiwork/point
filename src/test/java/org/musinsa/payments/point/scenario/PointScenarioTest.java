@@ -54,8 +54,9 @@ public class PointScenarioTest {
         // 2. 500원 적립한다 (총 잔액 1000 -> 1500 원). pointKey : B 로 할당
         String pointKeyB = pointService.accumulate("user1", 500L, false, PointType.FREE, 365, "ORD-B");
         
-        // 3. 주문번호 A1234 에서 1200원 사용한다 (총 잔액 1500 -> 300 원). pointKey : C 로 할당
-        String pointKeyC = pointService.use("user1", "A1234", 1200L);
+        // 3. 주문번호 A1234 에서 1200원 사용한다 (총 잔액 1500 -> 300 원).
+        String orderNoC = pointService.use("user1", "A1234", 1200L);
+        assertThat(orderNoC).isEqualTo("A1234");
         
         // 상세 검증 (A에서 1000, B에서 200 사용됨)
         Point accA = pointRepository.findByPointKey(pointKeyA).get();
@@ -73,28 +74,27 @@ public class PointScenarioTest {
         assertThat(expiredAccA.isExpired(LocalDateTime.now())).isTrue();
         
         // 5. C의 사용금액 1200원 중 1100원을 부분 사용취소 한다 (총 잔액 300 -> 1400 원)
-        // pointKey : D 로 할당 (취소 내역 자체는 D, A의 만료로 인한 신규 적립은 E)
-        pointService.cancelUsage(pointKeyC, 1100L);
+        pointService.cancelUsage(orderNoC, 1100L);
         
         // B는 만료되지 않았기 때문에 사용가능 잔액은 300 -> 400원이 된다
         Point updatedAccB = pointRepository.findByPointKey(pointKeyB).get();
         assertThat(updatedAccB.getRemainingAmount()).isEqualTo(400L);
         
-        // A는 이미 만료일이 지났기 때문에 pointKey E 로 1000원이 신규적립 되어야 한다.
+        // A는 이미 만료일이 지났기 때문에 1000원이 신규적립 되어야 한다.
         User user = userRepository.findByUserId("user1").get();
         assertThat(user.getTotalPoint()).isEqualTo(1400L); // 300(기존) + 1100(취소분) = 1400
         
-        // 신규 적립된 건(E)이 있는지 확인 (사용 가능한 포인트 목록에서 1000원짜리 확인)
+        // 신규 적립된 건이 있는지 확인 (사용 가능한 포인트 목록에서 1400원 확인)
         Long totalRemainingFromAcc = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
-        assertThat(totalRemainingFromAcc).isEqualTo(1400L); // 400(B) + 1000(E)
+        assertThat(totalRemainingFromAcc).isEqualTo(1400L); // 400(B) + 1000(신규)
         
         // C는 이제 1200원 사용금액중 100원을 부분취소 할 수 있다. (기존 1100원 취소했으므로 남은건 100원)
-        pointService.cancelUsage(pointKeyC, 100L);
+        pointService.cancelUsage(orderNoC, 100L);
         
         User finalUser = userRepository.findByUserId("user1").get();
         assertThat(finalUser.getTotalPoint()).isEqualTo(1500L); // 1400 + 100
         
         Long finalTotalRemaining = pointRepository.getValidTotalRemainingAmount("user1", LocalDateTime.now());
-        assertThat(finalTotalRemaining).isEqualTo(1500L); // B(400 + 100) + E(1000)
+        assertThat(finalTotalRemaining).isEqualTo(1500L); // B(400 + 100) + 신규(1000)
     }
 }

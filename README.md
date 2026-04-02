@@ -13,18 +13,18 @@
 ### 📑 과제 정보
 - **과제 요구사항**: [📄 요구사항 문서 보기](docs/요구사항.md)
 - **핵심 목표**
-  > **🎯 적립 단위(`pointKey` 단위)의 상태 변화와 그 이력의 일관성을 끝까지 맞추는 시스템**
+  > **🎯 적립 단위(`pointKey`) 및 사용 단위(`orderNo`)의 상태 변화와 그 이력의 일관성을 끝까지 맞추는 시스템**
 
 ---
 
 ## 📖 목차
 1. [빌드 및 실행 방법](#1-빌드-및-실행-방법)
 2. [접속 정보](#2-접속-정보)
-3. [요구사항 구현 및 설계](#3-요구사항-구현-및-설계)
+3. [데이터베이스 및 API 설계](#3-데이터베이스-및-api-설계)
 4. [핵심 로직 상세](#4-핵심-로직-상세)
 5. [시스템 설계 공통 사항](#5-시스템-설계-공통-사항)
 6. [아키텍처 구성](#6-아키텍처-구성)
-7. [동시성 제어 전략](#7-동시성-제어-전략)
+7. [멱등성 및 데이터 정합성 설계](#7-멱등성-및-데이터-정합성-설계)
 8. [부록: 무신사 도메인 특화 설계 고찰](#8-부록-무신사-도메인-특화-설계-고찰)
 
 ---
@@ -64,13 +64,13 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 
 ---
 
-## 📐 3. 요구사항 구현 및 설계
+## 📐 3. 데이터베이스 및 API 설계
 
 ### 3.1 데이터베이스 설계 (ERD)
 상세한 데이터베이스 설계 및 Mermaid 다이어그램은 아래 문서에서 확인할 수 있습니다.
 - [📊 데이터베이스 설계 (ERD) 상세 문서](docs/데이터베이스%20설계.md)
 
-### 3.2 API 명세 및 상세 설계
+### 3.2 API 명세
 모든 API는 아래와 같은 일관된 공통 응답 구조를 가집니다.
 
 #### [공통 응답 형식]
@@ -111,45 +111,6 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
   }
   ```
 
-<details>
-<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
-
-##### 처리 흐름 (Sequence Diagram)
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant UserEntity as User (Entity)
-    participant PointEntity as Point (Entity)
-    participant DB
-
-    Client->>Controller: 적립 요청 (userId, amount, orderNo, type Enum)
-    Controller->>Service: accumulate()
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    DB-->>Service: User 객체 반환
-    Service->>UserEntity: addPoint(amount)
-    Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
-    UserEntity-->>Service: 검증 완료 및 잔액 업데이트
-    Service->>PointEntity: Point 객체 생성
-    Service->>DB: Point 저장 & User 업데이트
-    Service-->>Controller: pointKey 반환
-    Controller-->>Client: 성공 응답
-```
-
-##### 케이스별 데이터 변화 예시
-| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
-| :--- | :--- | :--- | :--- | :--- |
-| **USER** | `totalPoint` | `5,000` | `6,000` | 전체 잔액 1,000P 증가 |
-| **POINT** | (신규 추가) | - | `amount: 1000, orderNo: ORD202604010001` | 새로운 적립 레코드 생성 |
-
-##### 주요 비즈니스 규칙
-1. **최소 금액**: 1회 적립 시 최소 1포인트 이상이어야 합니다.
-2. **1회 최대 한도**: `User` 엔티티에 설정된 `maxAccumulationPoint`를 초과하여 적립할 수 없습니다.
-3. **총 보유 한도**: 적립 후 사용자의 `totalPoint`가 `maxRetentionPoint`를 초과할 경우 적립이 거부됩니다.
-4. **동시성 제어**: 적립 처리 시 `User` 레코드에 비관적 락(`PESSIMISTIC_WRITE`)을 걸어 안전하게 잔액을 업데이트합니다.
-</details>
-
 ---
 
 #### 2️⃣ 적립 취소 API
@@ -166,48 +127,6 @@ sequenceDiagram
     "data": null
   }
   ```
-
-<details>
-<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
-
-##### 처리 흐름 (Sequence Diagram)
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant DB
-    participant PointEntity as Point (Entity)
-    participant UserEntity as User (Entity)
-
-    Client->>Controller: 적립 취소 요청 (pointKey)
-    Controller->>Service: cancelAccumulation(pointKey)
-    Service->>DB: Point 정보 조회
-    DB-->>Service: Point 객체 반환
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    DB-->>Service: User 객체 반환
-    Service->>PointEntity: cancel()
-    Note over PointEntity: 1. 이미 취소되었는지 검증<br/>2. 일부라도 사용되었는지 검증
-    PointEntity-->>Service: isCancelled=true, remainingAmount=0 업데이트
-    Service->>UserEntity: usePoint(cancelAmount)
-    UserEntity-->>Service: 사용자 잔액 업데이트 완료
-    Service->>DB: Point & User 저장
-    Service-->>Controller: 성공 반환
-    Controller-->>Client: 성공 응답
-```
-
-##### 케이스별 데이터 변화 예시
-| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
-| :--- | :--- | :--- | :--- | :--- |
-| **POINT** | `isCancelled` | `false` | `true` | 취소 완료 |
-| **POINT** | `remainingAmount` | `1,000` | `0` | 해당 적립 건의 잔액 0 |
-| **USER** | `totalPoint` | `6,000` | `5,000` | 전체 잔액에서 회수 |
-
-##### 주요 비즈니스 규칙
-1. **사용 여부 확인**: 적립된 금액 중 일부라도 사용된 경우( `remainingAmount < amount` ) 적립 취소가 불가능합니다.
-2. **전체 잔액 반영**: 취소 시 사용자의 `totalPoint`에서 취소되는 적립 건의 잔액만큼 차감합니다.
-3. **동시성 제어**: 사용자 레코드에 비관적 락을 획득하여 데이터 정합성을 보장합니다.
-</details>
 
 ---
 
@@ -230,53 +149,10 @@ sequenceDiagram
     "code": "SUCCESS",
     "message": "사용 성공",
     "data": {
-      "pointKey": "20260331000002"
+      "pointKey": "A1234"  // 사용된 주문 번호(orderNo) 반환
     }
   }
   ```
-
-<details>
-<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
-
-##### 처리 흐름 (Sequence Diagram)
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant DB
-    participant UserEntity as User (Entity)
-    participant PointEntity as Point (Entity)
-    participant UsageEntity as PointUsage (Entity)
-    participant DetailEntity as PointUsageDetail (Entity)
-
-    Client->>Controller: 포인트 사용 요청 (userId, amount)
-    Controller->>Service: use()
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    DB-->>Service: User 객체 반환
-    Service->>UserEntity: usePoint(amount)
-    Service->>DB: 사용 가능한 포인트 목록 조회 (isManual DESC, expiryDate ASC)
-    Service->>UsageEntity: PointUsage 생성
-    loop 사용 금액 소진 시까지
-        Service->>PointEntity: subtractAmount(subAmount)
-        Service->>DetailEntity: PointUsageDetail 생성 (1원 단위 연결)
-    end
-    Service->>DB: 모든 엔티티 저장 & User 업데이트
-    Service-->>Controller: 사용 pointKey 반환
-```
-
-##### 케이스별 데이터 변화 예시
-| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
-| :--- | :--- | :--- | :--- | :--- |
-| **USER** | `totalPoint` | `1,500` | `300` | 전체 잔액 차감 (1,200P 사용 시) |
-| **POINT (B)** | `remainingAmount` | `500` | `0` | **1순위**: 수기 포인트 소진 |
-| **POINT (A)** | `remainingAmount` | `1,000` | `300` | **2순위**: 일반 포인트 차감 |
-
-##### 주요 비즈니스 규칙
-1. **사용 우선순위**: 1순위 관리자 수기 지급 포인트, 2순위 만료일 임박 순서로 차감됩니다.
-2. **잔액 검증**: 사용자의 `totalPoint`가 요청 금액보다 적으면 즉시 실패 처리합니다.
-3. **추적성**: `PointUsageDetail`에 어느 적립 건에서 얼마가 차감되었는지 1원 단위까지 기록합니다.
-</details>
 
 ---
 
@@ -284,7 +160,7 @@ sequenceDiagram
 사용된 포인트의 전액 또는 일부를 취소합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.
 
 - **Method**: `POST`
-- **Path**: `/points/use/{pointKey}/cancel`
+- **Path**: `/points/use/{orderNo}/cancel`
 - **Request Body**:
   ```json
   {
@@ -300,55 +176,92 @@ sequenceDiagram
   }
   ```
 
-<details>
-<summary>🔄 데이터 흐름 및 상태 변화 (펼치기)</summary>
+---
 
-##### 처리 흐름 (Sequence Diagram)
+## 💡 4. 핵심 로직 상세
+<details>
+<summary>🔄 적립/사용 데이터 흐름 및 상태 변화 (펼치기)</summary>
+
+### [적립] 처리 흐름
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UserEntity as User (Entity)
+    participant PointEntity as Point (Entity)
+    participant DB
+
+    Client->>Controller: 적립 요청 (userId, amount, orderNo, type Enum)
+    Controller->>Service: accumulate()
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Service->>UserEntity: addPoint(amount)
+    Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
+    UserEntity-->>Service: 검증 완료 및 잔액 업데이트
+    Service->>PointEntity: Point 객체 생성
+    Service->>DB: Point 저장 & User 업데이트
+    Service-->>Controller: pointKey 반환
+    Controller-->>Client: 성공 응답
+```
+
+### [사용] 처리 흐름
 ```mermaid
 sequenceDiagram
     participant Client
     participant Controller
     participant Service
     participant DB
-    participant UsageEntity as PointUsage (Entity)
+    participant UserEntity as User (Entity)
+    participant PointEntity as Point (Entity)
+    participant OrderEntity as Order (Entity)
+    participant DetailEntity as PointUsageDetail (Entity)
+
+    Client->>Controller: 포인트 사용 요청 (userId, amount, orderNo)
+    Controller->>Service: use()
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Service->>UserEntity: usePoint(amount)
+    Service->>DB: 사용 가능한 포인트 목록 조회 (isManual DESC, expiryDate ASC)
+    Service->>OrderEntity: Order 생성 (orderNo 식별자)
+    loop 사용 금액 소진 시까지
+        Service->>PointEntity: subtractAmount(subAmount)
+        Service->>DetailEntity: PointUsageDetail 생성 (1원 단위 연결)
+    end
+    Service->>DB: 모든 엔티티 저장 & User 업데이트
+    Service-->>Controller: orderNo 반환
+```
+
+### [사용 취소] 처리 흐름
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant OrderEntity as Order (Entity)
     participant DetailEntity as PointUsageDetail (Entity)
     participant PointEntity as Point (Entity)
     participant UserEntity as User (Entity)
 
-    Client->>Controller: 사용 취소 요청 (pointKey, amount)
+    Client->>Controller: 사용 취소 요청 (orderNo, amount)
     Controller->>Service: cancelUsage()
-    Service->>DB: PointUsage(사용 마스터) 조회
-    Service->>UsageEntity: cancel(cancelAmount)
+    Service->>DB: Order(사용 마스터) 조회
+    Service->>OrderEntity: cancel(cancelAmount)
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     Service->>DB: 사용 상세 내역(Detail) 조회
     loop 남은 취소 금액 소진 시까지
         alt 만료 안 됨
-            Service->>PointEntity: addRemainingAmount(subAmount)
+            Service->>PointEntity: restore(subAmount)
         else 이미 만료됨
             Service->>PointEntity: 신규 적립 생성
         end
-        Service->>DetailEntity: cancel(subAmount)
+        Service->>DetailEntity: addCancelledAmount(subAmount)
     end
     Service->>UserEntity: addPoint(amount)
     Service->>DB: 모든 변경 사항 저장
 ```
-
-##### 케이스별 데이터 변화 예시
-| 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
-| :--- | :--- | :--- | :--- | :--- |
-| **USER** | `totalPoint` | `300` | `1,400` | 전체 잔액 1,100P 복구 |
-| **POINT (B)** | `remainingAmount` | `0` | `400` | B에서 사용한 500P 중 400P 복구 (미만료) |
-| **POINT (E)** | (신규 추가) | - | `amount: 700` | A에서 사용한 700P는 만료되어 신규 적립 |
-
-##### 주요 비즈니스 규칙
-1. **만료 처리**: 사용 취소 시점에 이미 만료된 포인트는 유효기간이 2999-12-31인 **신규 포인트로 적립**됩니다.
-2. **부분 취소**: 전체 금액이 아닌 일부 금액만 취소할 수 있으며, 여러 번에 나누어 취소도 가능합니다.
-3. **추적성 유지**: 어느 적립 건이 복구되거나 신규 적립되었는지를 `PointUsageDetail`을 통해 관리합니다.
 </details>
-
----
-
-## 💡 4. 핵심 로직 상세
 
 - **✨ 포인트 사용 우선순위**: 
   - 관리자 수기 지급 포인트를 최우선(`isManual DESC`)으로 사용합니다.
@@ -428,9 +341,9 @@ AWS 기반 아키텍처 구성도는 `docs/아키텍처 구성.md` 파일을 통
 
 ---
 
-## 🔒 7. 동시성 제어 전략
-데이터 정합성을 보장하기 위한 동시성 제어 전략은 아래 문서에서 확인할 수 있습니다.
-- [🔐 동시성 제어 전략 상세 문서](docs/동시성%20제어.md)
+## 🔒 7. 멱등성 및 데이터 정합성 설계
+데이터 정합성을 보장하기 위한 멱등성 및 동시성 제어 전략은 아래 문서에서 확인할 수 있습니다.
+- [🔐 멱등성 및 데이터 정합성 설계 상세 문서](docs/동시성%20제어.md)
 
 ---
 

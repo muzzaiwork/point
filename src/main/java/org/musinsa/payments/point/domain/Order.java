@@ -6,18 +6,19 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * 포인트 사용 내역 엔티티
+ * 포인트 사용(주문) 내역 엔티티
  */
 @Entity
-@Table(name = "point_usage", indexes = {
-        @Index(name = "idx_point_usage_user_id_usage_date", columnList = "userId, usageDate"),
-        @Index(name = "idx_point_usage_usage_date", columnList = "usageDate")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_user_id_usage_date", columnList = "userId, usageDate"),
+        @Index(name = "idx_orders_usage_date", columnList = "usageDate"),
+        @Index(name = "idx_orders_order_no", columnList = "orderNo")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class PointUsage {
+public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,11 +26,8 @@ public class PointUsage {
     @Column(nullable = false)
     private String userId;
 
-    @Column(nullable = false)
-    private String orderNo; // 주문 번호
-
     @Column(nullable = false, unique = true)
-    private String pointKey; // 사용 고유 키
+    private String orderNo; // 주문 번호 (식별자로 사용)
 
     @Column(nullable = false)
     private Long totalAmount; // 총 사용 금액 (취소 시 차감됨)

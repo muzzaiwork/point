@@ -78,14 +78,14 @@ public class PointDto {
     }
 
     /**
-     * 포인트 응답 객체 (pointKey 반환)
+     * 포인트 결과 응답
      */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Schema(description = "포인트 결과 응답")
     public static class PointResponse {
-        @Schema(description = "포인트 식별 키", example = "20260401000001")
+        @Schema(description = "포인트 또는 주문 식별 키", example = "20260401000001")
         private String pointKey;
     }
 }

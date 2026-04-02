@@ -36,6 +36,14 @@ public class PointUsageDetail {
     @Column(nullable = false)
     private Long cancelledAmount; // 해당 상세 내역에서 취소된 금액
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_cancel_id")
+    private OrderCancel orderCancel; // 어떤 취소 건에 의해 복구되었는지 연결
+
+    public void setOrderCancel(OrderCancel orderCancel) {
+        this.orderCancel = orderCancel;
+    }
+
     @Column(nullable = false)
     private LocalDateTime usageDate;
 

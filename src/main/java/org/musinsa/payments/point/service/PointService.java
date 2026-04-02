@@ -2,18 +2,10 @@ package org.musinsa.payments.point.service;
 
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ResultCode;
-import org.musinsa.payments.point.domain.Point;
-import org.musinsa.payments.point.domain.PointKeySequence;
-import org.musinsa.payments.point.domain.PointType;
-import org.musinsa.payments.point.domain.Order;
-import org.musinsa.payments.point.domain.PointUsageDetail;
-import org.musinsa.payments.point.domain.User;
+import org.musinsa.payments.point.domain.*;
+import org.musinsa.payments.point.dto.PointDto;
 import org.musinsa.payments.point.exception.BusinessException;
-import org.musinsa.payments.point.repository.PointKeySequenceRepository;
-import org.musinsa.payments.point.repository.PointRepository;
-import org.musinsa.payments.point.repository.PointUsageDetailRepository;
-import org.musinsa.payments.point.repository.OrderRepository;
-import org.musinsa.payments.point.repository.UserRepository;
+import org.musinsa.payments.point.repository.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +24,7 @@ public class PointService {
 
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
+    private final OrderCancelRepository orderCancelRepository;
     private final PointUsageDetailRepository usageDetailRepository;
     private final UserRepository userRepository;
     private final PointKeySequenceRepository sequenceRepository;
@@ -152,7 +145,6 @@ public class PointService {
             remainingToUse -= canUseFromThis;
 
             PointUsageDetail detail = PointUsageDetail.builder()
-                    .order(order)
                     .point(acc)
                     .amount(canUseFromThis)
                     .cancelledAmount(0L)
@@ -187,31 +179,6 @@ public class PointService {
 
         // 2. 사용자 잔액 복구 (한도 체크 포함)
         user.addPoint(cancelAmount);
-
-        List<PointUsageDetail> details = usageDetailRepository.findByOrder(order);
-        LocalDateTime now = LocalDateTime.now();
-
-        long remainingToCancel = cancelAmount;
-        
-        // 사용 내역 상세를 바탕으로 복구
-        for (PointUsageDetail detail : details) {
-            if (remainingToCancel <= 0) break;
-
-            long restorableInThisDetail = detail.getAmount() - detail.getCancelledAmount();
-            if (restorableInThisDetail <= 0) continue;
-
-            long amountToRestore = Math.min(restorableInThisDetail, remainingToCancel);
-            Point acc = detail.getPoint();
-            
-            if (acc.isExpired(now)) {
-                createNewAccumulationForExpiredCancellation(order.getUserId(), amountToRestore, acc.isManual(), acc.getType());
-            } else {
-                acc.restore(amountToRestore);
-            }
-            
-            detail.addCancelledAmount(amountToRestore);
-            remainingToCancel -= amountToRestore;
-        }
     }
 
     /**

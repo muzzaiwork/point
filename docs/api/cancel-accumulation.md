@@ -88,7 +88,7 @@ sequenceDiagram
 
 **기본 상태**
 - `user1`의 잔액: **6,000P**
-- 적립 내역 (ID: 10): `amount: 1,000`, `remainingAmount: 1,000`, `isCancelled: false`
+- 적립 내역 (pointKey: A): `amount: 1,000`, `remainingAmount: 1,000`, `isCancelled: false`
 
 | 테이블 | 필드 | 변경 전 | 변경 후 | 비고 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -106,7 +106,7 @@ sequenceDiagram
 
 **기본 상태**
 - `user1`의 잔액: **5,800P**
-- 적립 내역 (ID: 10): `amount: 1,000`, `remainingAmount: 800`, `isCancelled: false`
+- 적립 내역 (pointKey: A): `amount: 1,000`, `remainingAmount: 800`, `isCancelled: false`
 
 | 테이블 | 필드 | 상태 | 결과 | 비고 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -118,7 +118,7 @@ sequenceDiagram
 ### [Case 3] 이미 취소된 건을 다시 취소 (실패)
 
 **기본 상태**
-- 적립 내역 (ID: 10): `isCancelled: true`
+- 적립 내역 (pointKey: A): `isCancelled: true`
 
 | 테이블 | 필드 | 상태 | 결과 | 비고 |
 | :--- | :--- | :--- | :--- | :--- |

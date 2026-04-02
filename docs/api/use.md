@@ -23,10 +23,12 @@
 {
   "code": "SUCCESS",
   "message": "사용 성공",
-  "data": "20260331000002"
+  "data": {
+    "pointKey": "A1234"
+  }
 }
 ```
-- `data`: 생성된 포인트 사용 건의 고유 식별 키 (`pointKey`)
+- `data.pointKey`: 사용된 주문 번호 (`orderNo`)
 
 #### [실패]
 - **잔액 부족 (409 Conflict)**
@@ -60,10 +62,10 @@ sequenceDiagram
     participant DB
     participant UserEntity as User (Entity)
     participant PointEntity as Point (Entity)
-    participant UsageEntity as PointUsage (Entity)
+    participant OrderEntity as Order (Entity)
     participant DetailEntity as PointUsageDetail (Entity)
 
-    Client->>Controller: 포인트 사용 요청 (userId, amount)
+    Client->>Controller: 포인트 사용 요청 (userId, orderNo, amount)
     Controller->>Service: use()
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
@@ -74,14 +76,14 @@ sequenceDiagram
     Service->>DB: 사용 가능한 포인트 목록 조회<br/>(ORDER BY isManual DESC, expiryDate ASC)
     DB-->>Service: Point 목록 반환
     
-    Service->>UsageEntity: PointUsage 생성
+    Service->>OrderEntity: Order 생성 (orderNo 기록)
     loop 사용 금액 소진 시까지
-        Service->>PointEntity: subtractAmount(subAmount)
+        Service->>PointEntity: use(subAmount)
         Service->>DetailEntity: PointUsageDetail 생성 (1원 단위 연결)
     end
     
     Service->>DB: 모든 엔티티 저장 & User 업데이트
-    Service-->>Controller: 사용 pointKey 반환
+    Service-->>Controller: 사용 orderNo 반환
     Controller-->>Client: 성공 응답
 ```
 
@@ -100,7 +102,7 @@ sequenceDiagram
 | **USER** | `totalPoint` | `1,500` | `300` | 전체 잔액 차감 |
 | **POINT (B)** | `remainingAmount` | `500` | `0` | **1순위**: 수기 포인트 소진 (500P) |
 | **POINT (A)** | `remainingAmount` | `1,000` | `300` | **2순위**: 일반 포인트 차감 (700P) |
-| **POINT_USAGE** | (신규) | - | `amount: 1200` | 사용 마스터 레코드 생성 |
+| **ORDER** | (신규) | - | `totalAmount: 1200` | 사용 마스터 레코드 생성 |
 | **POINT_USAGE_DETAIL** | (신규 2건) | - | `B: 500, A: 700` | 상세 매칭 내역 저장 (추적용) |
 
 ---

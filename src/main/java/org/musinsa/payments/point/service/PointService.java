@@ -130,27 +130,28 @@ public class PointService {
 
     /**
      * 포인트를 사용한다.
-     * @param userId 사용자 ID
-     * @param orderNo 주문 번호
+     * 수기 지급(MANUAL) 포인트를 우선 사용하고, 이후 만료일 임박 순으로 차감한다.
+     *
+     * @param userId    사용자 ID
+     * @param orderNo   주문 번호 (중복 불가)
      * @param useAmount 사용 금액
-     * @return 주문 번호
+     * @return 생성된 주문 번호
      */
     @Transactional
     public String use(String userId, String orderNo, Long useAmount) {
-        // 0. 사용자 조회 및 락 획득
+        // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         UserAccount user = userAccountRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
-        // 1. 사용자 잔액 체크 및 차감
-        // 전체 잔액 체크만 수행 (상세 차감은 하위 루프에서 유/무료 구분하여 수행)
+        // 1. 전체 잔액 사전 체크 (루프 진입 전 빠른 실패)
         if (user.getRemainingPoint() < useAmount) {
             throw new BusinessException(ResultCode.POINT_SHORTAGE, "보유 포인트가 부족합니다.");
         }
 
-        // 2. 사용 가능한 상세 적립 내역 조회 (수기 지급 우선, 만료일 임박 순)
+        // 2. 사용 가능한 적립 내역 조회 (MANUAL 우선, 만료일 임박 순)
         List<Point> availablePoints = pointRepository.findAvailablePoints(userId);
-        
-        // 3. Order 기록
+
+        // 3. Order 생성 (주문 번호는 외부에서 전달받아 식별자로 사용)
         Order order = Order.builder()
                 .userId(userId)
                 .orderNo(orderNo)
@@ -161,7 +162,7 @@ public class PointService {
                 .build();
         orderRepository.save(order);
 
-        // 4. 포인트 차감 및 상세 내역 기록 (1원 단위 추적 가능)
+        // 4. 적립 건별 포인트 차감 및 PointEvent(USE) 기록 (1원 단위 추적)
         long remainingToUse = useAmount;
         for (Point acc : availablePoints) {
             if (remainingToUse <= 0) break;

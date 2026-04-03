@@ -361,12 +361,13 @@ sequenceDiagram
     Controller->>Service: use()
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
-    Service->>UserEntity: usePoint(amount)
+    Note over Service: remainingPoint < useAmount → POINT_SHORTAGE 예외
     Service->>DB: 사용 가능한 포인트 목록 조회 (pointSourceType DESC, expiryDate ASC)
     Note over DB: MANUAL 타입 우선, 이후 만료 임박 순
-    Service->>OrderEntity: Order 생성 (orderNo 식별자)
+    Service->>OrderEntity: Order 생성 (orderNo 식별자, type=PURCHASE, status=IN_PROGRESS)
     loop 포인트 사용 금액 소진 시까지
-        Service->>PointEntity: subtractAmount(subAmount)
+        Service->>PointEntity: use(subAmount)
+        Service->>UserEntity: usePoint(subAmount, type)
         Service->>EventEntity: PointEvent(USE) 생성 (1원 단위 연결)
     end
     Service->>DB: 모든 엔티티 저장 & User 업데이트
@@ -389,9 +390,9 @@ sequenceDiagram
 
 **ORDER** (신규 추가)
 
-| id | orderNo | userId | orderedPoint | canceledPoint | orderType |
-|----|---------|--------|-------------|---------------|----------|
-| 1 | A1234 | user1 | 1500 | 0 | NORMAL |
+| id | orderNo | userId | orderedPoint | canceledPoint | type | status |
+|----|---------|--------|-------------|---------------|------|--------|
+| 1 | A1234 | user1 | 1500 | 0 | PURCHASE | IN_PROGRESS |
 
 **POINT_EVENT** (신규 추가)
 
@@ -481,9 +482,9 @@ sequenceDiagram
 
 **ORDER** (변경)
 
-| id | orderNo | orderedPoint | canceledPoint | orderType |
-|----|---------|-------------|---------------|----------|
-| 1 | A1234 | 1500 | ~~0~~ → **500** | ~~NORMAL~~ → **PARTIAL_CANCEL** |
+| id | orderNo | orderedPoint | canceledPoint | type | status |
+|----|---------|-------------|---------------|------|--------|
+| 1 | A1234 | 1500 | ~~0~~ → **500** | ~~PURCHASE~~ → **PARTIAL_CANCEL** | IN_PROGRESS |
 
 **POINT** (변경)
 

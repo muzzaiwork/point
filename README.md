@@ -449,28 +449,37 @@ sequenceDiagram
     participant Service
     participant DB
     participant OrderEntity as Order (Entity)
-    participant EventEntity as PointEvent (Entity)
     participant PointEntity as Point (Entity)
-    participant UserEntity as User (Entity)
+    participant UserEntity as UserAccount (Entity)
 
-    Client->>Controller: 포인트 사용 취소 요청 (orderNo, amount)
-    Controller->>Service: cancelUsage()
-    Service->>DB: Order(사용 마스터) 조회
+    Client->>Controller: 포인트 사용 취소 요청 (orderNo, cancelAmount)
+    Controller->>Service: cancelUsage(orderNo, cancelAmount)
+
+    Service->>DB: Order 조회 (orderNo)
+    Service->>DB: UserAccount 조회 (Pessimistic Lock, 동시 취소 방지)
+
     Service->>OrderEntity: cancel(cancelAmount)
-    Note over OrderEntity: orderedPoint 유지, canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    Service->>DB: 해당 orderNo의 PointEvent(USE) 목록 조회
-    loop 남은 포인트 사용 취소 금액 소진 시까지
-        alt 만료 안 됨
-            Service->>PointEntity: restore(subAmount)
-            Service->>EventEntity: PointEvent(USE_CANCEL) 생성
-        else 이미 만료됨
-            Service->>PointEntity: 신규 Point 생성 (sourceType=AUTO_RESTORED, rootPointId 상속)
-            Service->>EventEntity: PointEvent(ACCUMULATE) 생성
+    Note over OrderEntity: orderedPoint 불변<br/>canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL<br/>초과 취소 시 예외 발생
+
+    Service->>DB: OrderCancel 이력 저장
+
+    Service->>DB: PointEvent(USE) 역순 조회 (LIFO)
+
+    loop 남은 취소 금액 소진 시까지
+        Note over Service: 이미 취소된 금액 제외 후<br/>실제 취소 가능 금액 계산
+
+        alt 유효한 적립 건 (만료 안 됨)
+            Service->>PointEntity: restore(canCancelFromThis)
+            Service->>UserEntity: cancelUsage(canCancelFromThis, type)
+            Service->>DB: PointEvent(USE_CANCEL) 저장
+        else 만료된 적립 건
+            Service->>UserEntity: cancelUsage(canCancelFromThis, type)
+            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointId/rootPointId 상속, 만료일=2999-12-31)
+            Service->>DB: PointEvent(ACCUMULATE) 저장
         end
     end
-    Service->>UserEntity: cancelUsage(amount)
-    Service->>DB: 모든 변경 사항 저장
+
+    Service->>Client: 취소 완료 응답
 ```
 
 ---
@@ -478,7 +487,9 @@ sequenceDiagram
 <details>
 <summary>🗃️ 테이블 데이터 예시</summary>
 
-> 요청: `orderNo=A1234`, `amount=500` (부분 취소, 위 사용 예시 이후 상태)
+#### Case 1. 부분 취소 (유효한 포인트)
+> 요청: `orderNo=A1234`, `cancelAmount=500`  
+> 위 사용 예시 이후 상태 (1500P 사용, remainingPoint=300)
 
 **ORDER** (변경)
 
@@ -488,15 +499,17 @@ sequenceDiagram
 
 **POINT** (변경)
 
-| id | pointKey | remainingPoint | isCancelled |
-|----|----------|----------------|-------------|
+| id | pointKey | remainingPoint | isExpired |
+|----|----------|----------------|-----------|
 | 2 | 20260403000002 | ~~300~~ → **800** | false |
 
-**POINT_EVENT** (신규 추가)
+**POINT_EVENT** (신규 추가 — 기존 USE 이벤트 포함)
 
 | id | pointId | orderNo | pointEventType | amount |
 |----|---------|---------|----------------|--------|
-| 5 | 2 | A1234 | USE_CANCEL | 500 |
+| 3 | 1 | A1234 | USE | 1000 |
+| 4 | 2 | A1234 | USE | 500 |
+| 5 | 2 | A1234 | **USE_CANCEL** | **500** |
 
 **USER_ACCOUNT** (변경)
 
@@ -504,11 +517,66 @@ sequenceDiagram
 |--------|----------------|----------|
 | user1 | ~~300~~ → **800** | ~~1500~~ → **1000** |
 
-> 💡 만료된 포인트 취소 시: 원본 복구 대신 `sourceType=AUTO_RESTORED`인 신규 Point가 생성되고 `ACCUMULATE` 이벤트가 기록됩니다. 신규 Point는 원본의 `rootPointId`를 상속합니다.
+**ORDER_CANCEL** (신규 추가)
+
+| id | orderId | cancelAmount | regDateTime |
+|----|---------|-------------|-------------|
+| 1 | 1 | 500 | 2026-04-03T10:05:00 |
+
+---
+
+#### Case 2. 전체 취소 (유효한 포인트)
+> 요청: `orderNo=A1234`, `cancelAmount=1000` (Case 1 이후 잔여 1000P 전액 취소)
+
+**ORDER** (변경)
+
+| id | orderNo | orderedPoint | canceledPoint | type | status |
+|----|---------|-------------|---------------|------|--------|
+| 1 | A1234 | 1500 | ~~500~~ → **1500** | ~~PARTIAL_CANCEL~~ → **TOTAL_CANCEL** | IN_PROGRESS |
+
+**POINT** (변경)
+
+| id | pointKey | remainingPoint | isExpired |
+|----|----------|----------------|-----------|
+| 1 | 20260403000001 | ~~0~~ → **1000** | false |
+| 2 | 20260403000002 | 800 | false |
+
+**POINT_EVENT** (신규 추가)
+
+| id | pointId | orderNo | pointEventType | amount |
+|----|---------|---------|----------------|--------|
+| 6 | 2 | A1234 | USE_CANCEL | 300 |
+| 7 | 1 | A1234 | USE_CANCEL | 700 |
+
+**USER_ACCOUNT** (변경)
+
+| userId | remainingPoint | usedPoint |
+|--------|----------------|----------|
+| user1 | ~~800~~ → **1800** | ~~1000~~ → **0** |
+
+---
+
+#### Case 3. 만료된 포인트 취소
+> 요청: `orderNo=B5678`, `cancelAmount=300` (사용 시점 이후 해당 적립 건이 만료된 경우)
+
+**POINT** (신규 생성 — 원본 복구 불가)
+
+| id | pointKey | remainingPoint | sourceType | originPointId | rootPointId | expiryDate |
+|----|----------|----------------|------------|---------------|-------------|------------|
+| 5 | 20260403000005 | 300 | AUTO_RESTORED | 1 | 1 | 2999-12-31 |
+
+**POINT_EVENT** (신규 추가)
+
+| id | pointId | orderNo | pointEventType | amount |
+|----|---------|---------|----------------|--------|
+| 8 | 1 | B5678 | USE_CANCEL | 300 |
+| 9 | 5 | — | ACCUMULATE | 300 |
+
+> 💡 만료된 포인트 취소 시 원본 Point는 변경되지 않으며, `AUTO_RESTORED` 타입의 신규 Point가 생성됩니다.  
+> 신규 Point는 원본의 `rootPointId`를 상속하여 계보가 유지됩니다.
 
 </details>
 
-</details>
 </details>
 
 ---

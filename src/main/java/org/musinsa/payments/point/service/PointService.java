@@ -185,56 +185,62 @@ public class PointService {
     }
 
     /**
-     * 사용을 취소한다.
-     * @param orderNo 주문 번호
+     * 포인트 사용을 취소한다.
+     * 부분 취소와 전체 취소를 모두 지원하며, 만료된 포인트는 신규 적립으로 처리한다.
+     *
+     * @param orderNo      취소할 주문 번호
      * @param cancelAmount 취소할 금액
      */
     @Transactional
     public void cancelUsage(String orderNo, Long cancelAmount) {
+        // 0. 주문 조회
         Order order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(ResultCode.ORDER_NOT_FOUND));
 
-        // 0. 사용자 조회 및 락 획득
+        // 1. 사용자 조회 및 비관적 락 획득 (동시 취소 요청 방지)
         UserAccount user = userAccountRepository.findByUserIdWithLock(order.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
-        // 1. 주문 내역 업데이트 (취소 금액 누적)
+        // 2. 주문 취소 금액 누적 및 취소 상태 갱신 (orderedPoint는 불변, canceledPoint 누적)
+        //    취소 가능 잔여 금액(orderedPoint - canceledPoint) 초과 시 예외 발생
         order.cancel(cancelAmount);
 
-        // 2. 취소 이력 저장
+        // 3. 취소 이력(OrderCancel) 저장
         OrderCancel orderCancel = OrderCancel.builder()
                 .order(order)
                 .cancelAmount(cancelAmount)
                 .build();
         orderCancelRepository.save(orderCancel);
 
-        // 3. 사용자 잔액 복구 (한도 체크 포함)
-
+        // 4. 사용 이벤트(USE) 역순 조회 후 건별 취소 처리
+        //    가장 최근에 차감된 적립 건부터 역순으로 복구 (LIFO)
         List<PointEvent> details = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.USE);
         long remainingToCancel = cancelAmount;
 
         for (PointEvent useDetail : details) {
             if (remainingToCancel <= 0) break;
 
+            // 이미 취소된 금액을 제외한 실제 취소 가능 금액 계산
             long alreadyCanceledAmount = getAlreadyCanceledAmount(useDetail);
             long canCancelFromThis = Math.min(useDetail.getAmount() - alreadyCanceledAmount, remainingToCancel);
             if (canCancelFromThis <= 0) continue;
 
             Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
-                // 만료된 경우 신규 적립 처리 (2999-12-31까지, originPointId/rootPointId 상속)
-                // accumulatePoint() 대신 cancelUsage()를 사용하여 1회 적립 한도 검증을 우회
+                // 4-1. 만료된 적립 건: 원본 복구 불가 → AUTO_RESTORED 타입으로 신규 적립
+                //      만료일은 2999-12-31로 설정, originPointId/rootPointId 상속
+                //      accumulatePoint() 대신 cancelUsage()로 잔액 복구 (1회 적립 한도 우회)
                 user.cancelUsage(canCancelFromThis, acc.getType());
                 doAccumulate(order.getUserId(), canCancelFromThis, PointSourceType.AUTO_RESTORED, acc.getType(),
                         LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getId(), acc.getRootPointId());
             } else {
-                // 만료되지 않은 경우 기존 적립 건 잔액 복구
+                // 4-2. 유효한 적립 건: 기존 포인트 잔액 복구
                 acc.restore(canCancelFromThis);
                 pointRepository.save(acc);
                 user.cancelUsage(canCancelFromThis, acc.getType());
             }
 
-            // 상세 내역에 취소 정보 기록
+            // 5. USE_CANCEL 이벤트 기록
             PointEvent cancelDetail = PointEvent.builder()
                     .order(order)
                     .point(acc)
@@ -243,7 +249,7 @@ public class PointService {
                     .orderCancel(orderCancel)
                     .build();
             pointEventRepository.save(cancelDetail);
-            
+
             remainingToCancel -= canCancelFromThis;
         }
     }

@@ -169,33 +169,6 @@ sequenceDiagram
     Controller-->>Client: 포인트 적립 성공 응답
 ```
 
----
-
-</details>
-
-<details>
-<summary>📊 데이터 플로우</summary>
-
-```mermaid
-flowchart TD
-    A([클라이언트 요청\nuserID / amount / orderNo / pointSourceType / pointType / expiredAt]) --> B[PointController\nPOST /points/accumulate]
-    B --> C[PointService\naccumulate]
-
-    C --> D[(DB: UserAccount 조회\nPessimistic Lock)]
-    D --> E{한도 검증}
-    E -- 1회 한도 초과 --> ERR1([❌ E4002 오류 반환])
-    E -- 총 보유 한도 초과 --> ERR2([❌ E4003 오류 반환])
-    E -- 검증 통과 --> F[UserAccount\nremainingPoint += amount\naccumulatedPoint += amount]
-
-    F --> G[Point 엔티티 생성\npointSourceType / pointType\naccumulatedPoint / remainingPoint\nexpiredAt]
-    G --> H[(DB: Point 저장\n@PostPersist → rootPointId = id)]
-
-    H --> I[PointEvent 생성\npointEventType = ACCUMULATE\namount]
-    I --> J[(DB: PointEvent 저장\nUserAccount 업데이트)]
-
-    J --> K([✅ pointKey 반환])
-```
-
 </details>
 
 <details>
@@ -282,7 +255,7 @@ sequenceDiagram
     Controller-->>Client: 포인트 적립 취소 성공 응답
 ```
 
----
+</details>
 
 <details>
 <summary>🗃️ 테이블 데이터 예시</summary>
@@ -309,7 +282,6 @@ sequenceDiagram
 
 </details>
 
-</details>
 </details>
 
 ---
@@ -374,7 +346,7 @@ sequenceDiagram
     Service-->>Controller: 포인트 사용 성공(orderNo) 반환
 ```
 
----
+</details>
 
 <details>
 <summary>🗃️ 테이블 데이터 예시</summary>
@@ -409,7 +381,6 @@ sequenceDiagram
 
 </details>
 
-</details>
 </details>
 
 ---
@@ -482,7 +453,7 @@ sequenceDiagram
     Service->>Client: 취소 완료 응답
 ```
 
----
+</details>
 
 <details>
 <summary>🗃️ 테이블 데이터 예시</summary>

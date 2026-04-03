@@ -24,7 +24,7 @@ public class PointService {
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
     private final OrderCancelRepository orderCancelRepository;
-    private final PointDetailRepository pointDetailRepository;
+    private final PointEventRepository pointDetailRepository;
     private final UserAccountRepository userAccountRepository;
     private final PointKeySequenceRepository sequenceRepository;
 
@@ -78,10 +78,13 @@ public class PointService {
                 .build();
 
         pointRepository.save(point);
+        // 최초 적립 시 rootPointId는 자기 자신
+        point.updateRootPointId(point.getId());
+        pointRepository.save(point);
 
-        PointDetail detail = PointDetail.builder()
+        PointEvent detail = PointEvent.builder()
                 .point(point)
-                .detailType(PointDetailType.ACCUMULATE)
+                .detailType(PointEventType.ACCUMULATE)
                 .amount(amount)
                 .build();
         pointDetailRepository.save(detail);
@@ -107,9 +110,9 @@ public class PointService {
         // 사용된 금액이 있는 경우 취소 불가 로직은 엔티티 내부에서 체크
         point.cancel();
         
-        PointDetail detail = PointDetail.builder()
+        PointEvent detail = PointEvent.builder()
                 .point(point)
-                .detailType(PointDetailType.ACCUMULATE_CANCEL)
+                .detailType(PointEventType.USE_CANCEL)
                 .amount(amountToCancel)
                 .build();
         pointDetailRepository.save(detail);
@@ -160,10 +163,10 @@ public class PointService {
             user.usePoint(canUseFromThis, acc.getType());
             remainingToUse -= canUseFromThis;
 
-            PointDetail detail = PointDetail.builder()
+            PointEvent detail = PointEvent.builder()
                     .order(order)
                     .point(acc)
-                    .detailType(PointDetailType.USE)
+                    .detailType(PointEventType.USE)
                     .amount(canUseFromThis)
                     .build();
             pointDetailRepository.save(detail);
@@ -206,10 +209,10 @@ public class PointService {
 
         // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
         // 사용의 역순(최근에 사용된 순서)으로 복구 진행
-        List<PointDetail> details = pointDetailRepository.findByOrderAndDetailTypeOrderByIdDesc(order, PointDetailType.USE);
+        List<PointEvent> details = pointDetailRepository.findByOrderAndDetailTypeOrderByIdDesc(order, PointEventType.USE);
         long remainingToCancel = cancelAmount;
 
-        for (PointDetail useDetail : details) {
+        for (PointEvent useDetail : details) {
             if (remainingToCancel <= 0) break;
 
             // 이미 취소된 금액을 제외하고 취소 가능한 금액 계산
@@ -238,10 +241,10 @@ public class PointService {
             }
 
             // 상세 내역에 취소 정보 기록
-            PointDetail cancelDetail = PointDetail.builder()
+            PointEvent cancelDetail = PointEvent.builder()
                     .order(order)
                     .point(acc)
-                    .detailType(PointDetailType.USE_CANCEL)
+                    .detailType(PointEventType.USE_CANCEL)
                     .amount(canCancelFromThis)
                     .orderCancel(orderCancel)
                     .build();
@@ -251,10 +254,10 @@ public class PointService {
         }
     }
 
-    private long getAlreadyCanceledAmount(PointDetail useDetail) {
-        return pointDetailRepository.findByOrderAndPointAndDetailType(useDetail.getOrder(), useDetail.getPoint(), PointDetailType.USE_CANCEL)
+    private long getAlreadyCanceledAmount(PointEvent useDetail) {
+        return pointDetailRepository.findByOrderAndPointAndDetailType(useDetail.getOrder(), useDetail.getPoint(), PointEventType.USE_CANCEL)
                 .stream()
-                .mapToLong(PointDetail::getAmount)
+                .mapToLong(PointEvent::getAmount)
                 .sum();
     }
 
@@ -274,15 +277,16 @@ public class PointService {
                 .type(originPoint.getType())
                 .pointSourceType(PointSourceType.AUTO_RESTORED)
                 .originPointId(originPoint.getId())
+                .rootPointId(originPoint.getRootPointId())
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
         pointRepository.save(point);
 
-        PointDetail detail = PointDetail.builder()
+        PointEvent detail = PointEvent.builder()
                 .point(point)
-                .detailType(PointDetailType.ACCUMULATE)
+                .detailType(PointEventType.REISSUE)
                 .amount(amount)
                 .build();
         pointDetailRepository.save(detail);

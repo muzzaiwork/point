@@ -34,7 +34,7 @@ public class PointScenarioTest {
     private OrderRepository orderRepository;
 
     @Autowired
-    private PointDetailRepository pointUsageDetailRepository;
+    private PointEventRepository pointUsageDetailRepository;
 
     @Autowired
     private OrderCancelRepository orderCancelRepository;
@@ -141,11 +141,11 @@ public class PointScenarioTest {
             System.out.printf("%s | %s | %d\n", u.getUserId(), u.getName(), u.getRemainingPoint()));
 
         System.out.println("\n[POINT]");
-        System.out.println("pointKey | accumulatedPoint | remainingPoint | cancelled | expired | sourceType | originId | expiryDateTime");
-        System.out.println("---------|------------------|----------------|-----------|---------|------------|----------|---------------");
+        System.out.println("pointKey | accumulatedPoint | remainingPoint | cancelled | expired | sourceType | originId | rootId | expiryDateTime");
+        System.out.println("---------|------------------|----------------|-----------|---------|------------|----------|--------|---------------");
         pointRepository.findAll().forEach(p -> 
-            System.out.printf("%s | %d | %d | %b | %b | %s | %s | %s\n", 
-                p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointId(), p.getExpiryDateTime()));
+            System.out.printf("%s | %d | %d | %b | %b | %s | %s | %s | %s\n", 
+                p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointId(), p.getRootPointId(), p.getExpiryDateTime()));
 
         System.out.println("\n[ORDERS]");
         System.out.println("orderNo | userId | orderedPoint | canceledPoint | type");
@@ -153,7 +153,7 @@ public class PointScenarioTest {
         orderRepository.findAll().forEach(o -> 
             System.out.printf("%s | %s | %d | %d | %s\n", o.getOrderNo(), o.getUserId(), o.getOrderedPoint(), o.getCanceledPoint(), o.getType()));
 
-        System.out.println("\n[POINT_DETAIL]");
+        System.out.println("\n[POINT_EVENT]");
         System.out.println("id | type | amount | orderNo | pointKey");
         System.out.println("---|------|--------|---------|----------");
         pointUsageDetailRepository.findAll().forEach(d -> 

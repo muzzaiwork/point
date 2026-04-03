@@ -58,9 +58,19 @@ public class Point extends BaseEntity {
 
     private Long originPointId; // 만료 후 취소로 인한 신규 적립 시 원천 적립 ID
 
+    private Long rootPointId; // 전체 이력 추적을 위한 최상위 적립 ID
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PointSourceType pointSourceType; // 포인트 적립 원천 타입
+
+    /**
+     * rootPointId를 설정한다.
+     * @param rootPointId 최상위 적립 ID
+     */
+    public void updateRootPointId(Long rootPointId) {
+        this.rootPointId = rootPointId;
+    }
 
     /**
      * 포인트를 사용한다 (잔액 차감)

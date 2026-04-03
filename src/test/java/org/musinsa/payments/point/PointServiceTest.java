@@ -62,6 +62,7 @@ public class PointServiceTest {
         assertThat(point.getType()).isEqualTo(PointType.FREE);
         assertThat(point.getPointSourceType()).isEqualTo(PointSourceType.ACCUMULATION);
         assertThat(point.getOrderNo()).isEqualTo("ORD-123");
+        assertThat(point.getRootPointId()).isEqualTo(point.getId());
         
         UserAccount user = userAccountRepository.findByUserId(userId).get();
         assertThat(user.getRemainingPoint()).isEqualTo(amount);

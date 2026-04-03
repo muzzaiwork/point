@@ -8,11 +8,12 @@ import lombok.RequiredArgsConstructor;
  */
 @Getter
 @RequiredArgsConstructor
-public enum PointDetailType {
+public enum PointEventType {
     ACCUMULATE("적립"),
-    ACCUMULATE_CANCEL("적립취소"),
     USE("사용"),
-    USE_CANCEL("사용취소");
+    USE_CANCEL("사용취소"),
+    EXPIRE("만료"),
+    REISSUE("재발급");
 
     private final String description;
 }

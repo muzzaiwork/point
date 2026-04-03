@@ -32,7 +32,7 @@ public class PointController {
         String pointKey = pointService.accumulate(
                 request.getUserId(),
                 request.getAmount(),
-                request.isManual(),
+                request.getPointSourceType(),
                 request.getType(),
                 request.getExpiryDays(),
                 request.getOrderNo()

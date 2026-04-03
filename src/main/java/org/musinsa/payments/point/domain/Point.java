@@ -65,6 +65,16 @@ public class Point extends BaseEntity {
     private PointSourceType pointSourceType; // 포인트 적립 원천 타입
 
     /**
+     * 최초 저장 시 rootPointId를 자기 자신으로 초기화한다.
+     */
+    @PostPersist
+    public void initRootPointId() {
+        if (this.rootPointId == null) {
+            this.rootPointId = this.id;
+        }
+    }
+
+    /**
      * rootPointId를 설정한다.
      * @param rootPointId 최상위 적립 ID
      */

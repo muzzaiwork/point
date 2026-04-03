@@ -58,12 +58,12 @@ public class PointScenarioTest {
 
         // 1. 1000원 적립한다 (총 잔액 0 -> 1000 원). pointKey : A 로 할당
         System.out.println(">>> [STEP 1] 사용자 'user1'에게 1000P를 적립합니다. (PointKey: A)");
-        String pointKeyA = pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, "ORD-A");
+        String pointKeyA = pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, "ORD-A");
         printDbState("1000원 적립 (A)");
         
         // 2. 500원 적립한다 (총 잔액 1000 -> 1500 원). pointKey : B 로 할당
         System.out.println(">>> [STEP 2] 사용자 'user1'에게 추가로 500P를 적립합니다. (PointKey: B)");
-        String pointKeyB = pointService.accumulate("user1", 500L, false, PointType.FREE, 365, "ORD-B");
+        String pointKeyB = pointService.accumulate("user1", 500L, PointSourceType.ACCUMULATION, PointType.FREE, 365, "ORD-B");
         printDbState("500원 적립 (B)");
         
         // 3. 주문번호 A1234 에서 1200원 사용한다 (총 잔액 1500 -> 300 원).

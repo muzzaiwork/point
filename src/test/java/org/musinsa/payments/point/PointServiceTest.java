@@ -53,7 +53,7 @@ public class PointServiceTest {
         Long amount = 1000L;
         
         // when
-        String pointKey = pointService.accumulate(userId, amount, false, PointType.FREE, 365, "ORD-123");
+        String pointKey = pointService.accumulate(userId, amount, PointSourceType.ACCUMULATION, PointType.FREE, 365, "ORD-123");
         
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
@@ -76,7 +76,7 @@ public class PointServiceTest {
         Long amount = 1000L;
         
         // when
-        String pointKey = pointService.accumulate(userId, amount, false, PointType.FREE, null, null);
+        String pointKey = pointService.accumulate(userId, amount, PointSourceType.ACCUMULATION, PointType.FREE, null, null);
         
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
@@ -92,7 +92,7 @@ public class PointServiceTest {
         Integer expiryDays = 10000; // 약 27년
         
         // when
-        String pointKey = pointService.accumulate(userId, amount, false, PointType.FREE, expiryDays, null);
+        String pointKey = pointService.accumulate(userId, amount, PointSourceType.ACCUMULATION, PointType.FREE, expiryDays, null);
         
         // then
         Point point = pointRepository.findByPointKey(pointKey).get();
@@ -106,11 +106,11 @@ public class PointServiceTest {
         String userId = "user1";
         // 10만씩 10번 적립 = 100만
         for (int i = 0; i < 10; i++) {
-            pointService.accumulate(userId, 100000L, false, PointType.FREE, 365, null);
+            pointService.accumulate(userId, 100000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         }
         
         // when & then (보유 한도 100만 초과 시도)
-        assertThatThrownBy(() -> pointService.accumulate(userId, 1L, false, PointType.FREE, 365, null))
+        assertThatThrownBy(() -> pointService.accumulate(userId, 1L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("resultCode", ResultCode.RETENTION_LIMIT_EXCEEDED);
     }
@@ -119,7 +119,7 @@ public class PointServiceTest {
     @DisplayName("적립 취소 성공")
     public void cancelAccumulationSuccess() {
         // given
-        String pointKey = pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        String pointKey = pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         
         // when
         pointService.cancelAccumulation(pointKey);
@@ -137,7 +137,7 @@ public class PointServiceTest {
     @DisplayName("적립 취소 실패 - 이미 사용된 포인트")
     public void cancelAccumulationFail_AlreadyUsed() {
         // given
-        String pointKey = pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        String pointKey = pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         pointService.use("user1", "ORD-1", 500L);
         
         // when & then
@@ -150,7 +150,7 @@ public class PointServiceTest {
     @DisplayName("포인트 사용 성공")
     public void useSuccess() {
         // given
-        pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         
         // when
         String orderNo = pointService.use("user1", "ORD-1", 700L);
@@ -165,7 +165,7 @@ public class PointServiceTest {
     @DisplayName("포인트 사용 실패 - 잔액 부족")
     public void useFail_PointShortage() {
         // given
-        pointService.accumulate("user1", 500L, false, PointType.FREE, 365, null);
+        pointService.accumulate("user1", 500L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         
         // when & then
         assertThatThrownBy(() -> pointService.use("user1", "ORD-1", 1000L))
@@ -177,7 +177,7 @@ public class PointServiceTest {
     @DisplayName("사용 취소(복구) 성공 - 만료되지 않은 포인트")
     public void cancelUsageSuccess_NotExpired() {
         // given
-        pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         String orderNo = pointService.use("user1", "ORD-1", 500L);
         
         // when
@@ -192,7 +192,7 @@ public class PointServiceTest {
     @DisplayName("사용 취소(복구) 실패 - 취소 금액 초과")
     public void cancelUsageFail_AmountExceeded() {
         // given
-        pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         String orderNo = pointService.use("user1", "ORD-1", 500L);
         
         // when & then
@@ -204,7 +204,7 @@ public class PointServiceTest {
     @DisplayName("사용 취소(복구) 실패 - 부분 취소 후 잔여 취소 가능 금액 초과")
     public void cancelUsageFail_PartialAmountExceeded() {
         // given
-        pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        pointService.accumulate("user1", 1000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, null);
         String orderNo = pointService.use("user1", "ORD-1", 500L);
         pointService.cancelUsage(orderNo, 300L); // 200L 남음
         

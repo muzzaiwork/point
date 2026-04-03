@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.musinsa.payments.point.domain.PointSourceType;
 
 /**
  * 포인트 관련 데이터 전달 객체(DTO)
@@ -29,12 +30,13 @@ public class PointDto {
         @Schema(description = "적립 금액", example = "1000")
         private Long amount;
 
-        @Schema(description = "관리자 수기 지급 여부", example = "false")
-        private boolean isManual;
+        @NotNull(message = "적립 원천 타입은 필수입니다. (ACCUMULATION, MANUAL 중 하나를 입력하세요)")
+        @Schema(description = "포인트 적립 원천 타입 (ACCUMULATION: 일반 적립, MANUAL: 수기 지급)", example = "ACCUMULATION")
+        private PointSourceType pointSourceType;
 
         @NotNull(message = "잘못된 포인트 타입입니다. (FREE, PAID 중 하나를 입력하세요)")
         @Schema(description = "포인트 타입 (FREE, PAID)", example = "FREE")
-        private org.musinsa.payments.point.domain.PointType type; // FREE, PAID
+        private org.musinsa.payments.point.domain.PointType type;
 
         @Schema(description = "만료일 수 (미입력 시 2999-12-31)", example = "30")
         private Integer expiryDays;

@@ -35,14 +35,14 @@ public class PointService {
      * 포인트를 적립한다.
      * @param userId 사용자 ID
      * @param amount 적립 금액
-     * @param isManual 수기 지급 여부
+     * @param pointSourceType 포인트 적립 원천 타입 (ACCUMULATION, MANUAL, AUTO_RESTORED)
      * @param type 포인트 타입 (FREE, PAID)
      * @param expiryDays 만료일 수 (미입력 시 2999-12-31)
      * @param orderNo 적립 근거 주문 번호
      * @return 생성된 적립 포인트의 고유 키
      */
     @Transactional
-    public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays, String orderNo) {
+    public String accumulate(String userId, Long amount, PointSourceType pointSourceType, PointType type, Integer expiryDays, String orderNo) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         UserAccount user = userAccountRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
@@ -61,7 +61,7 @@ public class PointService {
             expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
         }
 
-        // 2. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
+        // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.addPoint(amount, type);
 
         Point point = Point.builder()
@@ -71,15 +71,12 @@ public class PointService {
                 .accumulatedPoint(amount)
                 .remainingPoint(amount)
                 .type(type)
-                .pointSourceType(isManual ? PointSourceType.MANUAL : PointSourceType.ACCUMULATION)
+                .pointSourceType(pointSourceType)
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
 
-        pointRepository.save(point);
-        // 최초 적립 시 rootPointId는 자기 자신
-        point.updateRootPointId(point.getId());
         pointRepository.save(point);
 
         PointEvent detail = PointEvent.builder()
@@ -112,7 +109,7 @@ public class PointService {
         
         PointEvent detail = PointEvent.builder()
                 .point(point)
-                .detailType(PointEventType.USE_CANCEL)
+                .detailType(PointEventType.ACCUMULATE_CANCEL)
                 .amount(amountToCancel)
                 .build();
         pointDetailRepository.save(detail);

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum PointEventType {
     ACCUMULATE("적립"),
+    ACCUMULATE_CANCEL("적립취소"),
     USE("사용"),
     USE_CANCEL("사용취소"),
     EXPIRE("만료"),

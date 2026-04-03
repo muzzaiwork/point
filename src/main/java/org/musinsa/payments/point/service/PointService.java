@@ -24,7 +24,7 @@ public class PointService {
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
     private final OrderCancelRepository orderCancelRepository;
-    private final PointEventRepository pointDetailRepository;
+    private final PointEventRepository pointEventRepository;
     private final UserAccountRepository userAccountRepository;
     private final PointKeySequenceRepository sequenceRepository;
 
@@ -93,7 +93,7 @@ public class PointService {
                 .pointEventType(eventType)
                 .amount(amount)
                 .build();
-        pointDetailRepository.save(detail);
+        pointEventRepository.save(detail);
 
         return point.getPointKey();
     }
@@ -128,7 +128,7 @@ public class PointService {
                 .pointEventType(PointEventType.ACCUMULATE_CANCEL)
                 .amount(amountToCancel)
                 .build();
-        pointDetailRepository.save(detail);
+        pointEventRepository.save(detail);
 
         // 사용자 잔액 차감
         user.cancelAccumulation(amountToCancel, point.getType());
@@ -163,6 +163,7 @@ public class PointService {
                 .orderedPoint(useAmount)
                 .canceledPoint(0L)
                 .type(OrderType.PURCHASE)
+                .status(OrderStatus.IN_PROGRESS)
                 .build();
         orderRepository.save(order);
 
@@ -182,7 +183,7 @@ public class PointService {
                     .pointEventType(PointEventType.USE)
                     .amount(canUseFromThis)
                     .build();
-            pointDetailRepository.save(detail);
+            pointEventRepository.save(detail);
         }
 
         return order.getOrderNo();
@@ -197,10 +198,6 @@ public class PointService {
     public void cancelUsage(String orderNo, Long cancelAmount) {
         Order order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(ResultCode.ORDER_NOT_FOUND));
-
-        if (cancelAmount > order.getOrderedPoint() - order.getCanceledPoint()) {
-            throw new BusinessException(ResultCode.CANCEL_AMOUNT_EXCEEDED);
-        }
 
         // 0. 사용자 조회 및 락 획득
         UserAccount user = userAccountRepository.findByUserIdWithLock(order.getUserId())
@@ -222,7 +219,7 @@ public class PointService {
 
         // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
         // 사용의 역순(최근에 사용된 순서)으로 복구 진행
-        List<PointEvent> details = pointDetailRepository.findByOrderAndDetailTypeOrderByIdDesc(order, PointEventType.USE);
+        List<PointEvent> details = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.USE);
         long remainingToCancel = cancelAmount;
 
         for (PointEvent useDetail : details) {
@@ -243,7 +240,8 @@ public class PointService {
             Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
                 // 만료된 경우 신규 적립 처리 (2999-12-31까지, originPointId/rootPointId 상속)
-                user.addPoint(canCancelFromThis, acc.getType());
+                // addPoint() 대신 cancelUsage()를 사용하여 1회 적립 한도 검증을 우회
+                user.cancelUsage(canCancelFromThis, acc.getType());
                 doAccumulate(order.getUserId(), canCancelFromThis, PointSourceType.AUTO_RESTORED, acc.getType(),
                         LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getId(), acc.getRootPointId());
             } else {
@@ -261,14 +259,14 @@ public class PointService {
                     .amount(canCancelFromThis)
                     .orderCancel(orderCancel)
                     .build();
-            pointDetailRepository.save(cancelDetail);
+            pointEventRepository.save(cancelDetail);
             
             remainingToCancel -= canCancelFromThis;
         }
     }
 
     private long getAlreadyCanceledAmount(PointEvent useDetail) {
-        return pointDetailRepository.findByOrderAndPointAndDetailType(useDetail.getOrder(), useDetail.getPoint(), PointEventType.USE_CANCEL)
+        return pointEventRepository.findByOrderAndPointAndPointEventType(useDetail.getOrder(), useDetail.getPoint(), PointEventType.USE_CANCEL)
                 .stream()
                 .mapToLong(PointEvent::getAmount)
                 .sum();

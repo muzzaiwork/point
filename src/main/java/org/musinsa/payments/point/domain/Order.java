@@ -28,14 +28,18 @@ public class Order extends BaseEntity {
     private String orderNo; // 주문 번호 (식별자로 사용)
 
     @Column(nullable = false)
-    private Long orderedPoint; // 총 사용 금액 (취소 시 차감됨)
+    private Long orderedPoint; // 주문 시 사용한 총 포인트 금액 (불변)
 
     @Column(nullable = false)
     private Long canceledPoint; // 취소된 금액
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private OrderType type; // 주문 타입 (PURCHASE, PARTIAL_CANCEL, TOTAL_CANCEL)
+    private OrderType type; // 취소 상태 (PURCHASE, PARTIAL_CANCEL, TOTAL_CANCEL)
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status; // 진행 상태 (IN_PROGRESS, CONFIRMED)
 
     /**
      * 사용 취소 시 취소된 금액을 누적한다.
@@ -44,7 +48,7 @@ public class Order extends BaseEntity {
     public void cancel(Long cancelAmount) {
         if (this.orderedPoint - this.canceledPoint < cancelAmount) {
             throw new org.musinsa.payments.point.exception.BusinessException(
-                org.musinsa.payments.point.common.ResultCode.BAD_REQUEST, "취소 가능한 금액을 초과할 수 없습니다.");
+                org.musinsa.payments.point.common.ResultCode.CANCEL_AMOUNT_EXCEEDED);
         }
         this.canceledPoint += cancelAmount;
         

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * 포인트 사용 상세 내역 엔티티 (어떤 적립 건에서 얼마를 사용했는지 1원 단위로 기록)
+ * 포인트 이벤트 엔티티 (적립/사용/취소/만료/재발급 등 모든 포인트 활동을 기록)
  */
 @Entity
 @Table(name = "point_detail", indexes = {
@@ -31,10 +31,6 @@ public class PointEvent extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PointEventType pointEventType;
-
-    @Enumerated(EnumType.STRING)
-    @Column
-    private PointSourceType pointSourceType; // 적립 이벤트의 경우 출처 구분 (ACCUMULATION, MANUAL, AUTO_RESTORED)
 
     @Column(nullable = false)
     private Long amount; // 금액

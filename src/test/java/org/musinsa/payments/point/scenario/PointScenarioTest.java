@@ -148,17 +148,17 @@ public class PointScenarioTest {
                 p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointId(), p.getRootPointId(), p.getExpiryDateTime()));
 
         System.out.println("\n[ORDERS]");
-        System.out.println("orderNo | userId | orderedPoint | canceledPoint | type");
-        System.out.println("--------|--------|--------------|---------------|-------");
+        System.out.println("orderNo | userId | orderedPoint | canceledPoint | type | status");
+        System.out.println("--------|--------|--------------|---------------|------|-------");
         orderRepository.findAll().forEach(o -> 
-            System.out.printf("%s | %s | %d | %d | %s\n", o.getOrderNo(), o.getUserId(), o.getOrderedPoint(), o.getCanceledPoint(), o.getType()));
+            System.out.printf("%s | %s | %d | %d | %s | %s\n", o.getOrderNo(), o.getUserId(), o.getOrderedPoint(), o.getCanceledPoint(), o.getType(), o.getStatus()));
 
         System.out.println("\n[POINT_EVENT]");
-        System.out.println("id | type | sourceType | amount | orderNo | pointKey");
-        System.out.println("---|------|------------|--------|---------|----------");
+        System.out.println("id | type | amount | orderNo | pointKey");
+        System.out.println("---|------|--------|---------|----------");
         pointUsageDetailRepository.findAll().forEach(d -> 
-            System.out.printf("%d | %s | %s | %d | %s | %s\n", 
-                d.getId(), d.getPointEventType(), d.getPointSourceType(),
+            System.out.printf("%d | %s | %d | %s | %s\n", 
+                d.getId(), d.getPointEventType(),
                 d.getAmount(),
                 d.getOrder() != null ? d.getOrder().getOrderNo() : "-", 
                 d.getPoint().getPointKey()));

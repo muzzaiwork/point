@@ -168,6 +168,58 @@ sequenceDiagram
     Service-->>Controller: pointKey 반환
     Controller-->>Client: 포인트 적립 성공 응답
 ```
+
+---
+
+**📊 데이터 플로우**
+
+```mermaid
+flowchart TD
+    A([클라이언트 요청\nuserID / amount / orderNo / pointSourceType / pointType / expiredAt]) --> B[PointController\nPOST /points/accumulate]
+    B --> C[PointService\naccumulate]
+
+    C --> D[(DB: UserAccount 조회\nPessimistic Lock)]
+    D --> E{한도 검증}
+    E -- 1회 한도 초과 --> ERR1([❌ E4002 오류 반환])
+    E -- 총 보유 한도 초과 --> ERR2([❌ E4003 오류 반환])
+    E -- 검증 통과 --> F[UserAccount\nremainingPoint += amount\naccumulatedPoint += amount]
+
+    F --> G[Point 엔티티 생성\npointSourceType / pointType\naccumulatedPoint / remainingPoint\nexpiredAt]
+    G --> H[(DB: Point 저장\n@PostPersist → rootPointId = id)]
+
+    H --> I[PointEvent 생성\ndetailType = ACCUMULATE\namount]
+    I --> J[(DB: PointEvent 저장\nUserAccount 업데이트)]
+
+    J --> K([✅ pointKey 반환])
+```
+
+---
+
+<details>
+<summary>🗃️ 테이블 데이터 예시</summary>
+
+> 요청: `userId=user1`, `amount=1000`, `orderNo=ORD001`, `pointSourceType=ACCUMULATION`, `type=FREE`, `expiryDays=365`
+
+**POINT**
+
+| id | pointKey | userId | accumulatedPoint | remainingPoint | pointType | pointSourceType | isCancelled | expiredAt | rootPointId | originPointId |
+|----|----------|--------|-----------------|----------------|-----------|-----------------|-------------|-----------|-------------|---------------|
+| 1 | 20260403000001 | user1 | 1000 | 1000 | FREE | ACCUMULATION | false | 2027-04-03 | 1 | null |
+
+**POINT_EVENT**
+
+| id | pointId | orderNo | detailType | amount |
+|----|---------|---------|------------|--------|
+| 1 | 1 | ORD001 | ACCUMULATE | 1000 |
+
+**USER_ACCOUNT**
+
+| userId | remainingPoint | accumulatedPoint |
+|--------|----------------|------------------|
+| user1 | 1000 | 1000 |
+
+</details>
+
 </details>
 </details>
 
@@ -225,6 +277,34 @@ sequenceDiagram
     Service-->>Controller: 포인트 적립 취소 성공 반환
     Controller-->>Client: 포인트 적립 취소 성공 응답
 ```
+
+---
+
+<details>
+<summary>🗃️ 테이블 데이터 예시</summary>
+
+> 요청: `pointKey=20260403000001` (적립 시 1000P, 미사용 상태)
+
+**POINT** (변경)
+
+| id | pointKey | accumulatedPoint | remainingPoint | isCancelled |
+|----|----------|-----------------|----------------|-------------|
+| 1 | 20260403000001 | 1000 | ~~1000~~ → **0** | ~~false~~ → **true** |
+
+**POINT_EVENT** (신규 추가)
+
+| id | pointId | orderNo | detailType | amount |
+|----|---------|---------|------------|--------|
+| 2 | 1 | null | ACCUMULATE_CANCEL | 1000 |
+
+**USER_ACCOUNT** (변경)
+
+| userId | remainingPoint | accumulatedPoint |
+|--------|----------------|------------------|
+| user1 | ~~1000~~ → **0** | ~~1000~~ → **0** |
+
+</details>
+
 </details>
 </details>
 
@@ -288,6 +368,42 @@ sequenceDiagram
     Service->>DB: 모든 엔티티 저장 & User 업데이트
     Service-->>Controller: 포인트 사용 성공(orderNo) 반환
 ```
+
+---
+
+<details>
+<summary>🗃️ 테이블 데이터 예시</summary>
+
+> 요청: `userId=user1`, `orderNo=A1234`, `amount=1500` (보유 포인트: FREE 1000P + FREE 800P)
+
+**POINT** (변경)
+
+| id | pointKey | accumulatedPoint | remainingPoint | pointSourceType |
+|----|----------|-----------------|----------------|------------------|
+| 1 | 20260403000001 | 1000 | ~~1000~~ → **0** | ACCUMULATION |
+| 2 | 20260403000002 | 800 | ~~800~~ → **300** | ACCUMULATION |
+
+**ORDER** (신규 추가)
+
+| id | orderNo | userId | orderedPoint | canceledPoint | orderType |
+|----|---------|--------|-------------|---------------|----------|
+| 1 | A1234 | user1 | 1500 | 0 | NORMAL |
+
+**POINT_EVENT** (신규 추가)
+
+| id | pointId | orderNo | detailType | amount |
+|----|---------|---------|------------|--------|
+| 3 | 1 | A1234 | USE | 1000 |
+| 4 | 2 | A1234 | USE | 500 |
+
+**USER_ACCOUNT** (변경)
+
+| userId | remainingPoint | usedPoint |
+|--------|----------------|----------|
+| user1 | ~~1800~~ → **300** | ~~0~~ → **1500** |
+
+</details>
+
 </details>
 </details>
 
@@ -351,6 +467,42 @@ sequenceDiagram
     Service->>UserEntity: addPoint(amount)
     Service->>DB: 모든 변경 사항 저장
 ```
+
+---
+
+<details>
+<summary>🗃️ 테이블 데이터 예시</summary>
+
+> 요청: `orderNo=A1234`, `amount=500` (부분 취소, 위 사용 예시 이후 상태)
+
+**ORDER** (변경)
+
+| id | orderNo | orderedPoint | canceledPoint | orderType |
+|----|---------|-------------|---------------|----------|
+| 1 | A1234 | 1500 | ~~0~~ → **500** | ~~NORMAL~~ → **PARTIAL_CANCEL** |
+
+**POINT** (변경)
+
+| id | pointKey | remainingPoint | isCancelled |
+|----|----------|----------------|-------------|
+| 2 | 20260403000002 | ~~300~~ → **800** | false |
+
+**POINT_EVENT** (신규 추가)
+
+| id | pointId | orderNo | detailType | amount |
+|----|---------|---------|------------|--------|
+| 5 | 2 | A1234 | USE_CANCEL | 500 |
+
+**USER_ACCOUNT** (변경)
+
+| userId | remainingPoint | usedPoint |
+|--------|----------------|----------|
+| user1 | ~~300~~ → **800** | ~~1500~~ → **1000** |
+
+> 💡 만료된 포인트 취소 시: 원본 복구 대신 `sourceType=AUTO_RESTORED`인 신규 Point가 생성되고 `REISSUE` 이벤트가 기록됩니다. 신규 Point는 원본의 `rootPointId`를 상속합니다.
+
+</details>
+
 </details>
 </details>
 

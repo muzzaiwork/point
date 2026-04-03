@@ -108,13 +108,13 @@ public class UserAccount extends BaseEntity {
      */
     public void addPoint(Long amount, PointType type) {
         if (amount < 1) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "적립 금액은 1포인트 이상이어야 합니다.");
+            throw new BusinessException(ResultCode.INVALID_ACCUMULATION_AMOUNT);
         }
         if (amount > this.maxAccumulationPoint) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "1회 적립 한도(" + this.maxAccumulationPoint + ")를 초과하였습니다.");
+            throw new BusinessException(ResultCode.ACCUMULATION_LIMIT_EXCEEDED, "1회 적립 가능 한도(" + this.maxAccumulationPoint + ")를 초과하였습니다.");
         }
         if (this.remainingPoint + amount > this.maxRetentionPoint) {
-            throw new BusinessException(ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트(" + this.maxRetentionPoint + ")를 초과할 수 없습니다.");
+            throw new BusinessException(ResultCode.RETENTION_LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트(" + this.maxRetentionPoint + ")를 초과할 수 없습니다.");
         }
         
         this.accumulatedPoint += amount;

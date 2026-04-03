@@ -80,8 +80,11 @@ public class Point extends BaseEntity {
      * 이미 사용된 금액이 있는 경우 취소할 수 없다.
      */
     public void cancel() {
+        if (this.isCancelled) {
+            throw new BusinessException(ResultCode.ALREADY_CANCELLED);
+        }
         if (!this.accumulatedPoint.equals(this.remainingPoint)) {
-            throw new BusinessException(ResultCode.CONFLICT, "이미 사용된 금액이 있는 경우 적립을 취소할 수 없습니다.");
+            throw new BusinessException(ResultCode.ALREADY_USED);
         }
         this.isCancelled = true;
         this.remainingPoint = 0L;

@@ -45,11 +45,11 @@ public class PointService {
     public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays, String orderNo) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         UserAccount user = userRepository.findByUserIdWithLock(userId)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         // 1. 시스템 공통 적립 상한 검증
         if (amount > maxSystemAccumulationLimit) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "시스템 적립 상한(" + maxSystemAccumulationLimit + ")을 초과하였습니다.");
+            throw new BusinessException(ResultCode.ACCUMULATION_LIMIT_EXCEEDED, "시스템 적립 상한(" + maxSystemAccumulationLimit + ")을 초과하였습니다.");
         }
 
         // 2. 만료일 설정 (미입력 시 2999-12-31)
@@ -88,11 +88,11 @@ public class PointService {
     @Transactional
     public void cancelAccumulation(String pointKey) {
         Point point = pointRepository.findByPointKey(pointKey)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "적립 내역을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ResultCode.POINT_NOT_FOUND));
         
         // 사용자 잔액 차감을 위해 사용자 조회 (락 획득)
         UserAccount user = userRepository.findByUserIdWithLock(point.getUserId())
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         long amountToCancel = point.getRemainingPoint();
         
@@ -114,7 +114,7 @@ public class PointService {
     public String use(String userId, String orderNo, Long useAmount) {
         // 0. 사용자 조회 및 락 획득
         UserAccount user = userRepository.findByUserIdWithLock(userId)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         // 1. 사용자 잔액 체크 및 차감
         // 전체 잔액 체크만 수행 (상세 차감은 하위 루프에서 유/무료 구분하여 수행)
@@ -165,15 +165,15 @@ public class PointService {
     @Transactional
     public void cancelUsage(String orderNo, Long cancelAmount) {
         Order order = orderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "주문 내역을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ResultCode.ORDER_NOT_FOUND));
 
         if (cancelAmount > order.getTotalAmount()) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "취소 금액이 사용 금액을 초과할 수 없습니다.");
+            throw new BusinessException(ResultCode.CANCEL_AMOUNT_EXCEEDED);
         }
 
         // 0. 사용자 조회 및 락 획득
         UserAccount user = userRepository.findByUserIdWithLock(order.getUserId())
-                .orElseThrow(() -> new BusinessException(ResultCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         // 1. 주문 내역 업데이트 (취소 금액 누적)
         order.cancel(cancelAmount);

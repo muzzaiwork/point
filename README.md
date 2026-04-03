@@ -112,36 +112,66 @@ API 명세의 공통 사항 및 오류 코드 정의입니다.
 
 #### 1️⃣ 포인트 적립 API
 <details>
-<summary>📖 API 명세 및 처리 흐름 상세보기</summary>
+<summary>📖 API 명세 상세보기</summary>
 
 사용자에게 포인트를 적립하며, 1회 최대 적립 한도 및 총 보유 한도를 검증합니다.
 
-- **Method**: `POST`
-- **Path**: `/points/accumulate`
-- **Request Body**:
-  ```json
-  {
-    "userId": "user1",
-    "amount": 1000,
-    "pointSourceType": "ACCUMULATION",
-    "type": "FREE",
-    "expiryDays": 365,
-    "orderNo": "ORD202604010001"
-  }
-  ```
-  > `pointSourceType` 허용 값: `ACCUMULATION`(일반 적립), `MANUAL`(수기 지급)
-- **Response (Success)**:
-  ```json
-  {
-    "code": "E0000",
-    "message": "포인트 적립 성공",
-    "data": {
-      "pointKey": "20260331000001"
-    }
-  }
-  ```
+| 항목 | 내용 |
+| :--- | :--- |
+| **Method** | `POST` |
+| **Path** | `/points/accumulate` |
+| **Content-Type** | `application/json` |
 
-- **주요 오류 코드**: `E4041`, `E4002`, `E4003`, `E4092`
+**Request Body**
+
+| 필드 | 타입 | 필수 | 설명 |
+| :--- | :--- | :---: | :--- |
+| `userId` | String | ✅ | 사용자 ID |
+| `amount` | Long | ✅ | 적립 포인트 (1 이상, 시스템 한도 이하) |
+| `pointSourceType` | String | ✅ | `ACCUMULATION`(일반 적립) / `MANUAL`(수기 지급) |
+| `type` | String | ✅ | 포인트 유형 (`FREE`) |
+| `expiryDays` | Integer | ❌ | 만료일 (미입력 시 기본값: 2999-12-31) |
+| `orderNo` | String | ❌ | 연관 주문 번호 |
+
+**Response Body (`data`)**
+
+| 필드 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| `pointKey` | String | 생성된 포인트 키 (적립 식별자) |
+
+**Sample Request**
+```json
+{
+  "userId": "user1",
+  "amount": 1000,
+  "pointSourceType": "ACCUMULATION",
+  "type": "FREE",
+  "expiryDays": 365,
+  "orderNo": "ORD202604010001"
+}
+```
+
+**Sample Response**
+```json
+{
+  "code": "E0000",
+  "message": "포인트 적립 성공",
+  "data": {
+    "pointKey": "20260331000001"
+  }
+}
+```
+
+**오류 응답**
+
+| 코드 | 메시지 | 설명 |
+| :--- | :--- | :--- |
+| `E4041` | 사용자를 찾을 수 없습니다. | 존재하지 않는 userId |
+| `E4002` | 적립 금액은 1포인트 이상이어야 합니다. | 최소 금액 미달 |
+| `E4003` | 1회 적립 가능 한도를 초과했습니다. | 적립 한도 초과 |
+| `E4092` | 개인별 최대 보유 가능 포인트 한도를 초과했습니다. | 보유 한도 초과 |
+
+</details>
 
 <details>
 <summary>🔄 [시퀀스 다이어그램] 포인트 적립</summary>
@@ -196,29 +226,51 @@ sequenceDiagram
 
 </details>
 
-</details>
-
 ---
 
 #### 2️⃣ 포인트 적립 취소 API
 <details>
-<summary>📖 API 명세 및 처리 흐름 상세보기</summary>
+<summary>📖 API 명세 상세보기</summary>
 
 적립된 포인트 전액을 취소합니다. 이미 사용된 포인트가 있는 경우 취소할 수 없습니다.
 
-- **Method**: `POST`
-- **Path**: `/points/accumulate/{pointKey}/cancel`
-- **Request Body**: (Path Variable 사용)
-- **Response (Success)**:
-  ```json
-  {
-    "code": "E0000",
-    "message": "포인트 적립 취소 성공",
-    "data": null
-  }
-  ```
+| 항목 | 내용 |
+| :--- | :--- |
+| **Method** | `POST` |
+| **Path** | `/points/accumulate/{pointKey}/cancel` |
+| **Content-Type** | `-` (Path Variable만 사용) |
 
-- **주요 오류 코드**: `E4042`, `E4041`, `E4093`, `E4094`
+**Path Variable**
+
+| 필드 | 타입 | 필수 | 설명 |
+| :--- | :--- | :---: | :--- |
+| `pointKey` | String | ✅ | 취소할 적립 건의 포인트 키 |
+
+**Response Body (`data`)**
+
+| 필드 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| — | — | 없음 (`null`) |
+
+**Sample Response**
+```json
+{
+  "code": "E0000",
+  "message": "포인트 적립 취소 성공",
+  "data": null
+}
+```
+
+**오류 응답**
+
+| 코드 | 메시지 | 설명 |
+| :--- | :--- | :--- |
+| `E4042` | 적립 내역을 찾을 수 없습니다. | 존재하지 않는 pointKey |
+| `E4041` | 사용자를 찾을 수 없습니다. | 존재하지 않는 userId |
+| `E4093` | 이미 사용된 금액이 있어 취소할 수 없습니다. | 이미 사용된 포인트 존재 |
+| `E4094` | 이미 취소된 내역입니다. | 중복 취소 시도 |
+
+</details>
 
 <details>
 <summary>🔄 [시퀀스 다이어그램] 포인트 적립 취소</summary>
@@ -282,38 +334,62 @@ sequenceDiagram
 
 </details>
 
-</details>
-
 ---
 
 #### 3️⃣ 포인트 사용 API
 <details>
-<summary>📖 API 명세 및 처리 흐름 상세보기</summary>
+<summary>📖 API 명세 상세보기</summary>
 
 주문에 필요한 포인트를 차감하며, 관리자 수기 포인트 및 만료 임박 포인트가 우선적으로 사용됩니다.
 
-- **Method**: `POST`
-- **Path**: `/points/use`
-- **Request Body**:
-  ```json
-  {
-    "userId": "user1",
-    "orderNo": "A1234",
-    "amount": 500
-  }
-  ```
-- **Response (Success)**:
-  ```json
-  {
-    "code": "E0000",
-    "message": "포인트 사용 성공",
-    "data": {
-      "pointKey": "A1234"  // 사용된 주문 번호(orderNo) 반환
-    }
-  }
-  ```
+| 항목 | 내용 |
+| :--- | :--- |
+| **Method** | `POST` |
+| **Path** | `/points/use` |
+| **Content-Type** | `application/json` |
 
-- **주요 오류 코드**: `E4041`, `E4091`
+**Request Body**
+
+| 필드 | 타입 | 필수 | 설명 |
+| :--- | :--- | :---: | :--- |
+| `userId` | String | ✅ | 사용자 ID |
+| `orderNo` | String | ✅ | 주문 번호 (식별자) |
+| `amount` | Long | ✅ | 사용할 포인트 금액 |
+
+**Response Body (`data`)**
+
+| 필드 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| `pointKey` | String | 사용된 주문 번호 (`orderNo`) |
+
+**Sample Request**
+```json
+{
+  "userId": "user1",
+  "orderNo": "A1234",
+  "amount": 500
+}
+```
+
+**Sample Response**
+```json
+{
+  "code": "E0000",
+  "message": "포인트 사용 성공",
+  "data": {
+    "pointKey": "A1234"
+  }
+}
+```
+
+**오류 응답**
+
+| 코드 | 메시지 | 설명 |
+| :--- | :--- | :--- |
+| `E4041` | 사용자를 찾을 수 없습니다. | 존재하지 않는 userId |
+| `E4091` | 보유 포인트가 부족합니다. | 잔액 부족 |
+
+</details>
 
 <details>
 <summary>🔄 [시퀀스 다이어그램] 포인트 사용</summary>
@@ -381,34 +457,63 @@ sequenceDiagram
 
 </details>
 
-</details>
-
 ---
 
 #### 4️⃣ 포인트 사용 취소 API
 <details>
-<summary>📖 API 명세 및 처리 흐름 상세보기</summary>
+<summary>📖 API 명세 상세보기</summary>
 
 사용된 포인트의 전액 또는 일부를 취소합니다. 이미 만료된 포인트는 신규 적립 처리됩니다.
 
-- **Method**: `POST`
-- **Path**: `/points/use/{orderNo}/cancel`
-- **Request Body**:
-  ```json
-  {
-    "amount": 500
-  }
-  ```
-- **Response (Success)**:
-  ```json
-  {
-    "code": "E0000",
-    "message": "포인트 사용 취소 성공",
-    "data": null
-  }
-  ```
+| 항목 | 내용 |
+| :--- | :--- |
+| **Method** | `POST` |
+| **Path** | `/points/use/{orderNo}/cancel` |
+| **Content-Type** | `application/json` |
 
-- **주요 오류 코드**: `E4043`, `E4041`, `E4004`
+**Path Variable**
+
+| 필드 | 타입 | 필수 | 설명 |
+| :--- | :--- | :---: | :--- |
+| `orderNo` | String | ✅ | 취소할 주문 번호 |
+
+**Request Body**
+
+| 필드 | 타입 | 필수 | 설명 |
+| :--- | :--- | :---: | :--- |
+| `amount` | Long | ✅ | 취소할 포인트 금액 (전액 또는 일부) |
+
+**Response Body (`data`)**
+
+| 필드 | 타입 | 설명 |
+| :--- | :--- | :--- |
+| — | — | 없음 (`null`) |
+
+**Sample Request**
+```json
+{
+  "amount": 500
+}
+```
+
+**Sample Response**
+```json
+{
+  "code": "E0000",
+  "message": "포인트 사용 취소 성공",
+  "data": null
+}
+```
+
+**오류 응답**
+
+| 코드 | 메시지 | 설명 |
+| :--- | :--- | :--- |
+| `E4043` | 주문 내역을 찾을 수 없습니다. | 존재하지 않는 orderNo |
+| `E4041` | 사용자를 찾을 수 없습니다. | 존재하지 않는 userId |
+| `E4004` | 취소 금액이 원본 금액을 초과할 수 없습니다. | 취소 금액 초과 |
+
+</details>
 
 <details>
 <summary>🔄 [시퀀스 다이어그램] 포인트 사용 취소</summary>
@@ -548,8 +653,6 @@ sequenceDiagram
 
 </details>
 
-</details>
-
 ---
 
 ### 3.3 핵심 비즈니스 로직 및 정책
@@ -568,8 +671,6 @@ sequenceDiagram
 - **🧪 시나리오 검증**: 
   - 요구사항 예시 시나리오에 따른 데이터 변화는 [🔍 시나리오 흐름 문서](docs/시나리오%20흐름.md)에서 확인할 수 있습니다.
   - 실제 동작은 [💻 시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)를 통해 검증되었습니다.
-
----
 
 ---
 

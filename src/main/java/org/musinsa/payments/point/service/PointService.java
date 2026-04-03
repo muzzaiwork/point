@@ -96,22 +96,27 @@ public class PointService {
 
     /**
      * 적립을 취소한다.
+     * 이미 사용된 금액이 있는 경우 취소할 수 없다. (부분 취소 불가)
+     *
      * @param pointKey 취소할 적립 건의 고유 키
      */
     @Transactional
     public void cancelAccumulation(String pointKey) {
+        // 0. 적립 건 조회
         Point point = pointRepository.findByPointKey(pointKey)
                 .orElseThrow(() -> new BusinessException(ResultCode.POINT_NOT_FOUND));
-        
-        // 사용자 잔액 차감을 위해 사용자 조회 (락 획득)
+
+        // 1. 사용자 조회 (비관적 락 적용하여 동시성 제어)
         UserAccount user = userAccountRepository.findByUserIdWithLock(point.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
+        // 2. 취소 처리 (이미 취소 여부 및 사용 여부 검증은 엔티티 내부에서 수행)
+        //    - isCancelled == true → ALREADY_CANCELLED 예외
+        //    - remainingPoint < accumulatedPoint → ALREADY_USED 예외
         long amountToCancel = point.getRemainingPoint();
-        
-        // 사용된 금액이 있는 경우 취소 불가 로직은 엔티티 내부에서 체크
         point.cancel();
-        
+
+        // 3. 적립 취소 이벤트 기록
         PointEvent detail = PointEvent.builder()
                 .point(point)
                 .pointEventType(PointEventType.ACCUMULATE_CANCEL)
@@ -119,7 +124,7 @@ public class PointService {
                 .build();
         pointEventRepository.save(detail);
 
-        // 사용자 잔액 차감
+        // 4. 사용자 잔액 차감 (적립 철회)
         user.cancelAccumulation(amountToCancel, point.getType());
     }
 

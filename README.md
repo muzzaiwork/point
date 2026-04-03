@@ -268,14 +268,16 @@ sequenceDiagram
     DB-->>Service: UserAccount 객체 반환
     
     Service->>PointEntity: cancel()
-    Note over PointEntity: 1. 이미 취소되었는지 검증<br/>2. 일부라도 사용되었는지 검증<br/>(accumulatedPoint == remainingPoint 확인)
-    PointEntity-->>Service: isCancelled=true, remainingPoint=0 업데이트
-    
-    Service->>UserAccountEntity: usePoint(cancelAmount)
-    Note over UserAccountEntity: 적립된 금액을 회수하므로 전체 잔액(remainingPoint)에서 차감
-    UserAccountEntity-->>Service: 사용자 잔액 업데이트 완료
-    
-    Service->>DB: PointEvent(ACCUMULATE_CANCEL) 저장 & Point & UserAccount 업데이트
+    Note over PointEntity: 1. isCancelled == true → ALREADY_CANCELLED 예외<br/>2. remainingPoint < accumulatedPoint → ALREADY_USED 예외<br/>3. isCancelled = true, remainingPoint = 0 처리
+    PointEntity-->>Service: 상태 업데이트 완료
+
+    Service->>DB: PointEvent(ACCUMULATE_CANCEL) 저장
+    DB-->>Service: 저장 완료
+
+    Service->>UserAccountEntity: cancelAccumulation(amount, type)
+    Note over UserAccountEntity: accumulatedPoint -= amount<br/>remainingPoint -= amount<br/>(유/무료 구분하여 각 필드도 차감)
+    UserAccountEntity-->>Service: 잔액 업데이트 완료
+
     Service-->>Controller: 포인트 적립 취소 성공 반환
     Controller-->>Client: 포인트 적립 취소 성공 응답
 ```

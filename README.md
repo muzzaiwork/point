@@ -171,7 +171,10 @@ sequenceDiagram
 
 ---
 
-**📊 데이터 플로우**
+</details>
+
+<details>
+<summary>📊 데이터 플로우</summary>
 
 ```mermaid
 flowchart TD
@@ -193,7 +196,7 @@ flowchart TD
     J --> K([✅ pointKey 반환])
 ```
 
----
+</details>
 
 <details>
 <summary>🗃️ 테이블 데이터 예시</summary>
@@ -220,7 +223,6 @@ flowchart TD
 
 </details>
 
-</details>
 </details>
 
 ---

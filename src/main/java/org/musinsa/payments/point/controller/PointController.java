@@ -61,11 +61,10 @@ public class PointController {
     @PostMapping("/use")
     @Operation(summary = "포인트 사용", description = "주문 시 포인트를 사용합니다. 수기 지급 포인트가 우선 사용되며, 만료일이 짧은 순서로 차감됩니다.")
     public ApiResponse<PointDto.PointResponse> use(@Valid @RequestBody PointDto.UseRequest request) {
-        // TODO: 아이템 단위 구현 완료 후 request.getItems()로 변경
         String orderNo = pointService.use(
                 request.getUserId(),
                 request.getOrderNo(),
-                0L // 임시 금액
+                request.getAmount()
         );
         return ApiResponse.success("사용 성공", new PointDto.PointResponse(orderNo));
     }

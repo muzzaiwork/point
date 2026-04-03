@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "point", indexes = {
-        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, isManual, isExpired"),
+        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, pointSourceType, isExpired"),
         @Index(name = "idx_point_accumulation_date", columnList = "regDateTime"),
         @Index(name = "idx_point_expiry_date", columnList = "expiryDateTime, isExpired"),
         @Index(name = "idx_point_order_no", columnList = "orderNo")
@@ -42,9 +42,6 @@ public class Point extends BaseEntity {
     @Column(nullable = false)
     private Long remainingPoint; // 사용 가능한 잔액
 
-    @Column(nullable = false)
-    private boolean isManual; // 수기 지급 여부
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PointType type; // 포인트 타입 (FREE, PAID)
@@ -58,6 +55,12 @@ public class Point extends BaseEntity {
     private boolean isCancelled; // 적립 취소 여부
 
     private boolean isExpired; // 만료 여부
+
+    private Long originPointId; // 만료 후 취소로 인한 신규 적립 시 원천 적립 ID
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PointSourceType pointSourceType; // 포인트 적립 원천 타입
 
     /**
      * 포인트를 사용한다 (잔액 차감)

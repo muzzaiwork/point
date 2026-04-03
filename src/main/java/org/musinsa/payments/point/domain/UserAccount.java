@@ -10,7 +10,7 @@ import lombok.*;
  * 개인별 포인트 보유 한도 등을 관리한다.
  */
 @Entity
-@Table(name = "users")
+@Table(name = "user_account")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor

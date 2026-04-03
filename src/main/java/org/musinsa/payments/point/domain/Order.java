@@ -3,9 +3,6 @@ package org.musinsa.payments.point.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 /**
  * 포인트 사용(주문) 내역 엔티티
  */
@@ -31,28 +28,27 @@ public class Order extends BaseEntity {
     private String orderNo; // 주문 번호 (식별자로 사용)
 
     @Column(nullable = false)
-    private Long totalAmount; // 총 사용 금액 (취소 시 차감됨)
+    private Long orderedPoint; // 총 사용 금액 (취소 시 차감됨)
 
     @Column(nullable = false)
-    private Long cancelledAmount; // 취소된 금액
+    private Long canceledPoint; // 취소된 금액
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderType type; // 주문 타입 (PURCHASE, PARTIAL_CANCEL, TOTAL_CANCEL)
 
     /**
-     * 사용 취소 시 총 사용 금액에서 차감한다.
+     * 사용 취소 시 취소된 금액을 누적한다.
      * @param cancelAmount 취소할 금액
      */
     public void cancel(Long cancelAmount) {
-        if (this.totalAmount < cancelAmount) {
+        if (this.orderedPoint - this.canceledPoint < cancelAmount) {
             throw new org.musinsa.payments.point.exception.BusinessException(
-                org.musinsa.payments.point.common.ResultCode.BAD_REQUEST, "취소 금액이 사용 금액을 초과할 수 없습니다.");
+                org.musinsa.payments.point.common.ResultCode.BAD_REQUEST, "취소 가능한 금액을 초과할 수 없습니다.");
         }
-        this.totalAmount -= cancelAmount;
-        this.cancelledAmount += cancelAmount;
+        this.canceledPoint += cancelAmount;
         
-        if (this.totalAmount == 0) {
+        if (this.orderedPoint.equals(this.canceledPoint)) {
             this.type = OrderType.TOTAL_CANCEL;
         } else {
             this.type = OrderType.PARTIAL_CANCEL;

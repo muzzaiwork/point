@@ -1,5 +1,6 @@
 package org.musinsa.payments.point;
 
+import org.musinsa.payments.point.domain.PointSourceType;
 import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.exception.BusinessException;
 import org.musinsa.payments.point.common.ResultCode;
@@ -31,12 +32,12 @@ public class PointServiceTest {
     private PointRepository pointRepository;
 
     @Autowired
-    private UserAccountRepository userRepository;
+    private UserAccountRepository userAccountRepository;
 
     @BeforeEach
     public void setUp() {
         // 테스트 사용자 생성
-        userRepository.save(UserAccount.builder()
+        userAccountRepository.save(UserAccount.builder()
                 .userId("user1")
                 .name("테스트유저")
                 .maxAccumulationPoint(100000L)
@@ -59,9 +60,10 @@ public class PointServiceTest {
         assertThat(point.getAccumulatedPoint()).isEqualTo(amount);
         assertThat(point.getRemainingPoint()).isEqualTo(amount);
         assertThat(point.getType()).isEqualTo(PointType.FREE);
+        assertThat(point.getPointSourceType()).isEqualTo(PointSourceType.ACCUMULATION);
         assertThat(point.getOrderNo()).isEqualTo("ORD-123");
         
-        UserAccount user = userRepository.findByUserId(userId).get();
+        UserAccount user = userAccountRepository.findByUserId(userId).get();
         assertThat(user.getRemainingPoint()).isEqualTo(amount);
     }
 
@@ -109,7 +111,7 @@ public class PointServiceTest {
         // when & then (보유 한도 100만 초과 시도)
         assertThatThrownBy(() -> pointService.accumulate(userId, 1L, false, PointType.FREE, 365, null))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("resultCode", ResultCode.LIMIT_EXCEEDED);
+                .hasFieldOrPropertyWithValue("resultCode", ResultCode.RETENTION_LIMIT_EXCEEDED);
     }
 
     @Test
@@ -126,7 +128,7 @@ public class PointServiceTest {
         assertThat(point.isCancelled()).isTrue();
         assertThat(point.getRemainingPoint()).isEqualTo(0L);
         
-        UserAccount user = userRepository.findByUserId("user1").get();
+        UserAccount user = userAccountRepository.findByUserId("user1").get();
         assertThat(user.getRemainingPoint()).isEqualTo(0L);
     }
 
@@ -140,7 +142,7 @@ public class PointServiceTest {
         // when & then
         assertThatThrownBy(() -> pointService.cancelAccumulation(pointKey))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("resultCode", ResultCode.CONFLICT);
+                .hasFieldOrPropertyWithValue("resultCode", ResultCode.ALREADY_USED);
     }
 
     @Test
@@ -154,7 +156,7 @@ public class PointServiceTest {
         
         // then
         assertThat(orderNo).isEqualTo("ORD-1");
-        UserAccount user = userRepository.findByUserId("user1").get();
+        UserAccount user = userAccountRepository.findByUserId("user1").get();
         assertThat(user.getRemainingPoint()).isEqualTo(300L);
     }
 
@@ -181,7 +183,7 @@ public class PointServiceTest {
         pointService.cancelUsage(orderNo, 500L);
         
         // then
-        UserAccount user = userRepository.findByUserId("user1").get();
+        UserAccount user = userAccountRepository.findByUserId("user1").get();
         assertThat(user.getRemainingPoint()).isEqualTo(1000L);
     }
 
@@ -193,8 +195,20 @@ public class PointServiceTest {
         String orderNo = pointService.use("user1", "ORD-1", 500L);
         
         // when & then
-        assertThatThrownBy(() -> pointService.cancelUsage(orderNo, 600L))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("resultCode", ResultCode.BAD_REQUEST);
+        assertThatThrownBy(() -> pointService.cancelUsage(orderNo, 501L))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("사용 취소(복구) 실패 - 부분 취소 후 잔여 취소 가능 금액 초과")
+    public void cancelUsageFail_PartialAmountExceeded() {
+        // given
+        pointService.accumulate("user1", 1000L, false, PointType.FREE, 365, null);
+        String orderNo = pointService.use("user1", "ORD-1", 500L);
+        pointService.cancelUsage(orderNo, 300L); // 200L 남음
+        
+        // when & then
+        assertThatThrownBy(() -> pointService.cancelUsage(orderNo, 201L))
+                .isInstanceOf(BusinessException.class);
     }
 }

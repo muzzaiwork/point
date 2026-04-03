@@ -24,8 +24,8 @@ public class PointService {
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
     private final OrderCancelRepository orderCancelRepository;
-    private final PointUsageDetailRepository usageDetailRepository;
-    private final UserAccountRepository userRepository;
+    private final PointDetailRepository pointDetailRepository;
+    private final UserAccountRepository userAccountRepository;
     private final PointKeySequenceRepository sequenceRepository;
 
     @Value("${point.accumulation.max-limit}")
@@ -44,7 +44,7 @@ public class PointService {
     @Transactional
     public String accumulate(String userId, Long amount, boolean isManual, PointType type, Integer expiryDays, String orderNo) {
         // 0. 사용자 조회 (비관적 락 적용하여 동시성 제어)
-        UserAccount user = userRepository.findByUserIdWithLock(userId)
+        UserAccount user = userAccountRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         // 1. 시스템 공통 적립 상한 검증
@@ -70,14 +70,22 @@ public class PointService {
                 .orderNo(orderNo)
                 .accumulatedPoint(amount)
                 .remainingPoint(amount)
-                .isManual(isManual)
                 .type(type)
+                .pointSourceType(isManual ? PointSourceType.MANUAL : PointSourceType.ACCUMULATION)
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
 
         pointRepository.save(point);
+
+        PointDetail detail = PointDetail.builder()
+                .point(point)
+                .detailType(PointDetailType.ACCUMULATE)
+                .amount(amount)
+                .build();
+        pointDetailRepository.save(detail);
+
         return point.getPointKey();
     }
 
@@ -91,7 +99,7 @@ public class PointService {
                 .orElseThrow(() -> new BusinessException(ResultCode.POINT_NOT_FOUND));
         
         // 사용자 잔액 차감을 위해 사용자 조회 (락 획득)
-        UserAccount user = userRepository.findByUserIdWithLock(point.getUserId())
+        UserAccount user = userAccountRepository.findByUserIdWithLock(point.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         long amountToCancel = point.getRemainingPoint();
@@ -99,6 +107,13 @@ public class PointService {
         // 사용된 금액이 있는 경우 취소 불가 로직은 엔티티 내부에서 체크
         point.cancel();
         
+        PointDetail detail = PointDetail.builder()
+                .point(point)
+                .detailType(PointDetailType.ACCUMULATE_CANCEL)
+                .amount(amountToCancel)
+                .build();
+        pointDetailRepository.save(detail);
+
         // 사용자 잔액 차감
         user.cancelAccumulation(amountToCancel, point.getType());
     }
@@ -113,7 +128,7 @@ public class PointService {
     @Transactional
     public String use(String userId, String orderNo, Long useAmount) {
         // 0. 사용자 조회 및 락 획득
-        UserAccount user = userRepository.findByUserIdWithLock(userId)
+        UserAccount user = userAccountRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         // 1. 사용자 잔액 체크 및 차감
@@ -129,8 +144,8 @@ public class PointService {
         Order order = Order.builder()
                 .userId(userId)
                 .orderNo(orderNo)
-                .totalAmount(useAmount)
-                .cancelledAmount(0L)
+                .orderedPoint(useAmount)
+                .canceledPoint(0L)
                 .type(OrderType.PURCHASE)
                 .build();
         orderRepository.save(order);
@@ -145,13 +160,13 @@ public class PointService {
             user.usePoint(canUseFromThis, acc.getType());
             remainingToUse -= canUseFromThis;
 
-            PointUsageDetail detail = PointUsageDetail.builder()
+            PointDetail detail = PointDetail.builder()
                     .order(order)
                     .point(acc)
+                    .detailType(PointDetailType.USE)
                     .amount(canUseFromThis)
-                    .cancelledAmount(0L)
                     .build();
-            usageDetailRepository.save(detail);
+            pointDetailRepository.save(detail);
         }
 
         return order.getOrderNo();
@@ -167,12 +182,12 @@ public class PointService {
         Order order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException(ResultCode.ORDER_NOT_FOUND));
 
-        if (cancelAmount > order.getTotalAmount()) {
+        if (cancelAmount > order.getOrderedPoint() - order.getCanceledPoint()) {
             throw new BusinessException(ResultCode.CANCEL_AMOUNT_EXCEEDED);
         }
 
         // 0. 사용자 조회 및 락 획득
-        UserAccount user = userRepository.findByUserIdWithLock(order.getUserId())
+        UserAccount user = userAccountRepository.findByUserIdWithLock(order.getUserId())
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
         // 1. 주문 내역 업데이트 (취소 금액 누적)
@@ -191,19 +206,28 @@ public class PointService {
 
         // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
         // 사용의 역순(최근에 사용된 순서)으로 복구 진행
-        List<PointUsageDetail> details = usageDetailRepository.findByOrderOrderByIdDesc(order);
+        List<PointDetail> details = pointDetailRepository.findByOrderAndDetailTypeOrderByIdDesc(order, PointDetailType.USE);
         long remainingToCancel = cancelAmount;
 
-        for (PointUsageDetail detail : details) {
+        for (PointDetail useDetail : details) {
             if (remainingToCancel <= 0) break;
 
-            long canCancelFromThis = Math.min(detail.getAmount() - detail.getCancelledAmount(), remainingToCancel);
+            // 이미 취소된 금액을 제외하고 취소 가능한 금액 계산
+            // PointDetail이 분리되었으므로, 해당 USE 디테일에 대해 취소된 내역들을 합산해야 할 수도 있음.
+            // 하지만 설계상 USE_CANCEL이 USE를 참조하면 됨.
+            
+            // 현재 USE_CANCEL이 어떤 USE에 대한 취소인지 기록하기 위해 PointDetail에 parentDetailId 같은게 있으면 좋겠지만
+            // 일단은 point와 order가 같으면 추적 가능함.
+            // 기존 로직은 PointUsageDetail 하나에서 canceledPoint를 업데이트했음.
+            // 이제는 별도 Row를 쌓으므로, 이미 취소된 양을 계산해야 함.
+            long alreadyCanceledAmount = getAlreadyCanceledAmount(useDetail);
+            long canCancelFromThis = Math.min(useDetail.getAmount() - alreadyCanceledAmount, remainingToCancel);
             if (canCancelFromThis <= 0) continue;
 
-            Point acc = detail.getPoint();
+            Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
                 // 만료된 경우 신규 적립 처리 (2999-12-31까지)
-                createNewAccumulationForExpiredCancellation(order.getUserId(), canCancelFromThis, acc.isManual(), acc.getType());
+                createNewAccumulationForExpiredCancellation(order.getUserId(), canCancelFromThis, acc);
                 // 만료된 경우에도 UserAccount 입장에선 사용 취소(복구) 처리됨
                 user.cancelUsage(canCancelFromThis, acc.getType());
             } else {
@@ -214,18 +238,30 @@ public class PointService {
             }
 
             // 상세 내역에 취소 정보 기록
-            detail.addCancelledAmount(canCancelFromThis);
-            detail.setOrderCancel(orderCancel);
-            usageDetailRepository.save(detail);
+            PointDetail cancelDetail = PointDetail.builder()
+                    .order(order)
+                    .point(acc)
+                    .detailType(PointDetailType.USE_CANCEL)
+                    .amount(canCancelFromThis)
+                    .orderCancel(orderCancel)
+                    .build();
+            pointDetailRepository.save(cancelDetail);
             
             remainingToCancel -= canCancelFromThis;
         }
     }
 
+    private long getAlreadyCanceledAmount(PointDetail useDetail) {
+        return pointDetailRepository.findByOrderAndPointAndDetailType(useDetail.getOrder(), useDetail.getPoint(), PointDetailType.USE_CANCEL)
+                .stream()
+                .mapToLong(PointDetail::getAmount)
+                .sum();
+    }
+
     /**
      * 사용 취소 시 만료된 포인트에 대해 신규 적립 내역만 생성 (UserAccount 잔액은 이미 업데이트됨)
      */
-    private void createNewAccumulationForExpiredCancellation(String userId, Long amount, boolean isManual, PointType type) {
+    private void createNewAccumulationForExpiredCancellation(String userId, Long amount, Point originPoint) {
         LocalDateTime now = LocalDateTime.now();
         // 만료된 포인트 사용 취소 시 기본적으로 2999-12-31까지로 재적립 (요구사항에 맞춰 정책 결정 가능)
         LocalDateTime expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
@@ -235,13 +271,21 @@ public class PointService {
                 .pointKey(generatePointKey())
                 .accumulatedPoint(amount)
                 .remainingPoint(amount)
-                .isManual(isManual)
-                .type(type)
+                .type(originPoint.getType())
+                .pointSourceType(PointSourceType.AUTO_RESTORED)
+                .originPointId(originPoint.getId())
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
                 .build();
         pointRepository.save(point);
+
+        PointDetail detail = PointDetail.builder()
+                .point(point)
+                .detailType(PointDetailType.ACCUMULATE)
+                .amount(amount)
+                .build();
+        pointDetailRepository.save(detail);
     }
 
     /**

@@ -154,11 +154,12 @@ public class PointScenarioTest {
             System.out.printf("%s | %s | %d | %d | %s\n", o.getOrderNo(), o.getUserId(), o.getOrderedPoint(), o.getCanceledPoint(), o.getType()));
 
         System.out.println("\n[POINT_EVENT]");
-        System.out.println("id | type | amount | orderNo | pointKey");
-        System.out.println("---|------|--------|---------|----------");
+        System.out.println("id | type | sourceType | amount | orderNo | pointKey");
+        System.out.println("---|------|------------|--------|---------|----------");
         pointUsageDetailRepository.findAll().forEach(d -> 
-            System.out.printf("%d | %s | %d | %s | %s\n", 
-                d.getId(), d.getPointEventType(), d.getAmount(),
+            System.out.printf("%d | %s | %s | %d | %s | %s\n", 
+                d.getId(), d.getPointEventType(), d.getPointSourceType(),
+                d.getAmount(),
                 d.getOrder() != null ? d.getOrder().getOrderNo() : "-", 
                 d.getPoint().getPointKey()));
 

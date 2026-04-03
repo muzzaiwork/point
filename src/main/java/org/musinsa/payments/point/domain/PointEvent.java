@@ -32,6 +32,10 @@ public class PointEvent extends BaseEntity {
     @Column(nullable = false)
     private PointEventType pointEventType;
 
+    @Enumerated(EnumType.STRING)
+    @Column
+    private PointSourceType pointSourceType; // 적립 이벤트의 경우 출처 구분 (ACCUMULATION, MANUAL, AUTO_RESTORED)
+
     @Column(nullable = false)
     private Long amount; // 금액
 

@@ -123,12 +123,13 @@ API 명세의 공통 사항 및 오류 코드 정의입니다.
   {
     "userId": "user1",
     "amount": 1000,
-    "isManual": false,
+    "pointSourceType": "ACCUMULATION",
     "type": "FREE",
     "expiryDays": 365,
     "orderNo": "ORD202604010001"
   }
   ```
+  > `pointSourceType` 허용 값: `ACCUMULATION`(일반 적립), `MANUAL`(수기 지급)
 - **Response (Success)**:
   ```json
   {
@@ -161,8 +162,9 @@ sequenceDiagram
     Service->>UserEntity: addPoint(amount)
     Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
     UserEntity-->>Service: 검증 완료 및 잔액 업데이트
-    Service->>PointEntity: Point 객체 생성
-    Service->>DB: Point 저장 & User 업데이트
+    Service->>PointEntity: Point 객체 생성 (pointSourceType, rootPointId 설정)
+    Note over PointEntity: @PostPersist로 rootPointId 자동 초기화
+    Service->>DB: PointEvent(ACCUMULATE) 저장 & User 업데이트
     Service-->>Controller: pointKey 반환
     Controller-->>Client: 포인트 적립 성공 응답
 ```
@@ -219,7 +221,7 @@ sequenceDiagram
     Note over UserAccountEntity: 적립된 금액을 회수하므로 전체 잔액(remainingPoint)에서 차감
     UserAccountEntity-->>Service: 사용자 잔액 업데이트 완료
     
-    Service->>DB: Point & UserAccount 저장
+    Service->>DB: PointEvent(ACCUMULATE_CANCEL) 저장 & Point & UserAccount 업데이트
     Service-->>Controller: 포인트 적립 취소 성공 반환
     Controller-->>Client: 포인트 적립 취소 성공 응답
 ```
@@ -269,18 +271,19 @@ sequenceDiagram
     participant UserEntity as User (Entity)
     participant PointEntity as Point (Entity)
     participant OrderEntity as Order (Entity)
-    participant DetailEntity as PointUsageDetail (Entity)
+    participant EventEntity as PointEvent (Entity)
 
     Client->>Controller: 포인트 사용 요청 (userId, amount, orderNo)
     Controller->>Service: use()
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
     Service->>UserEntity: usePoint(amount)
-    Service->>DB: 사용 가능한 포인트 목록 조회 (isManual DESC, expiryDate ASC)
+    Service->>DB: 사용 가능한 포인트 목록 조회 (pointSourceType DESC, expiryDate ASC)
+    Note over DB: MANUAL 타입 우선, 이후 만료 임박 순
     Service->>OrderEntity: Order 생성 (orderNo 식별자)
     loop 포인트 사용 금액 소진 시까지
         Service->>PointEntity: subtractAmount(subAmount)
-        Service->>DetailEntity: PointUsageDetail 생성 (1원 단위 연결)
+        Service->>EventEntity: PointEvent(USE) 생성 (1원 단위 연결)
     end
     Service->>DB: 모든 엔티티 저장 & User 업데이트
     Service-->>Controller: 포인트 사용 성공(orderNo) 반환
@@ -325,7 +328,7 @@ sequenceDiagram
     participant Service
     participant DB
     participant OrderEntity as Order (Entity)
-    participant DetailEntity as PointUsageDetail (Entity)
+    participant EventEntity as PointEvent (Entity)
     participant PointEntity as Point (Entity)
     participant UserEntity as User (Entity)
 
@@ -333,15 +336,17 @@ sequenceDiagram
     Controller->>Service: cancelUsage()
     Service->>DB: Order(사용 마스터) 조회
     Service->>OrderEntity: cancel(cancelAmount)
+    Note over OrderEntity: orderedPoint 유지, canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL
     Service->>DB: 사용자 조회 (Pessimistic Lock)
-    Service->>DB: 사용 상세 내역(Detail) 조회
+    Service->>DB: 해당 orderNo의 PointEvent(USE) 목록 조회
     loop 남은 포인트 사용 취소 금액 소진 시까지
         alt 만료 안 됨
             Service->>PointEntity: restore(subAmount)
+            Service->>EventEntity: PointEvent(USE_CANCEL) 생성
         else 이미 만료됨
-            Service->>PointEntity: 신규 적립 생성
+            Service->>PointEntity: 신규 Point 생성 (sourceType=AUTO_RESTORED, rootPointId 상속)
+            Service->>EventEntity: PointEvent(REISSUE) 생성
         end
-        Service->>DetailEntity: addCancelledAmount(subAmount)
     end
     Service->>UserEntity: addPoint(amount)
     Service->>DB: 모든 변경 사항 저장
@@ -353,12 +358,17 @@ sequenceDiagram
 
 ### 3.3 핵심 비즈니스 로직 및 정책
 - **✨ 포인트 사용 우선순위**: 
-  - 관리자 수기 지급 포인트를 최우선(`isManual DESC`)으로 사용합니다.
+  - `MANUAL`(수기 지급) 포인트를 최우선으로 사용합니다.
   - 그 다음 만료일이 임박한 순서(`expiryDate ASC`)로 자동 차감됩니다.
-- **🔍 1원 단위 이력 추적**: 
-  - `PointUsageDetail` 테이블을 통해 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 정밀하게 기록합니다.
+- **🔍 이벤트 기반 이력 추적**: 
+  - `PointEvent` 테이블에 `ACCUMULATE`, `USE`, `USE_CANCEL`, `ACCUMULATE_CANCEL`, `EXPIRE`, `REISSUE` 타입으로 모든 포인트 활동을 기록합니다.
+  - 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 1원 단위로 정밀하게 추적할 수 있습니다.
+- **🌳 포인트 계보 추적 (`rootPointId`)**: 
+  - 모든 포인트는 `rootPointId`를 보유하며, 만료 후 재적립된 포인트도 원본의 `rootPointId`를 상속합니다.
+  - 재귀 쿼리 없이 `rootPointId` 단일 조건으로 전체 적립 계보를 조회할 수 있습니다.
 - **♻️ 만료 포인트 자동 신규 적립**: 
-  - 사용 취소 시점에 이미 만료된 포인트는 원본 복구가 아닌, 정책에 따라 유효기간이 넉넉한 신규 포인트로 자동 적립 처리됩니다.
+  - 사용 취소 시점에 이미 만료된 포인트는 원본 복구가 아닌, `AUTO_RESTORED` 타입의 신규 포인트로 자동 적립 처리됩니다.
+  - 신규 적립 포인트는 원본의 `rootPointId`를 상속하여 계보가 유지됩니다.
 - **🧪 시나리오 검증**: 
   - 요구사항 예시 시나리오에 따른 데이터 변화는 [🔍 시나리오 흐름 문서](docs/시나리오%20흐름.md)에서 확인할 수 있습니다.
   - 실제 동작은 [💻 시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)를 통해 검증되었습니다.

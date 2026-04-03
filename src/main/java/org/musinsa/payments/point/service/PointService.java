@@ -53,17 +53,20 @@ public class PointService {
         }
 
         // 2. 만료일 설정 (미입력 시 2999-12-31)
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime expiryDate;
-        if (expiryDays != null) {
-            expiryDate = now.plusDays(expiryDays);
-        } else {
-            expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
-        }
+        LocalDateTime expiryDate = resolveExpiryDate(expiryDays);
 
         // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.addPoint(amount, type);
 
+        return doAccumulate(userId, amount, pointSourceType, type, expiryDate, orderNo, null, null);
+    }
+
+    /**
+     * 포인트 적립의 핵심 로직 (Point 저장 + PointEvent 저장)
+     * 외부 적립(accumulate)과 만료 후 취소 재적립 모두 이 메서드를 통해 처리한다.
+     */
+    private String doAccumulate(String userId, Long amount, PointSourceType pointSourceType, PointType type,
+                                 LocalDateTime expiryDate, String orderNo, Long originPointId, Long rootPointId) {
         Point point = Point.builder()
                 .userId(userId)
                 .pointKey(generatePointKey())
@@ -72,6 +75,8 @@ public class PointService {
                 .remainingPoint(amount)
                 .type(type)
                 .pointSourceType(pointSourceType)
+                .originPointId(originPointId)
+                .rootPointId(rootPointId)
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
@@ -79,14 +84,25 @@ public class PointService {
 
         pointRepository.save(point);
 
+        PointEventType eventType = (pointSourceType == PointSourceType.AUTO_RESTORED)
+                ? PointEventType.REISSUE
+                : PointEventType.ACCUMULATE;
+
         PointEvent detail = PointEvent.builder()
                 .point(point)
-                .detailType(PointEventType.ACCUMULATE)
+                .pointEventType(eventType)
                 .amount(amount)
                 .build();
         pointDetailRepository.save(detail);
 
         return point.getPointKey();
+    }
+
+    private LocalDateTime resolveExpiryDate(Integer expiryDays) {
+        if (expiryDays != null) {
+            return LocalDateTime.now().plusDays(expiryDays);
+        }
+        return LocalDateTime.of(2999, 12, 31, 23, 59, 59);
     }
 
     /**
@@ -109,7 +125,7 @@ public class PointService {
         
         PointEvent detail = PointEvent.builder()
                 .point(point)
-                .detailType(PointEventType.ACCUMULATE_CANCEL)
+                .pointEventType(PointEventType.ACCUMULATE_CANCEL)
                 .amount(amountToCancel)
                 .build();
         pointDetailRepository.save(detail);
@@ -163,7 +179,7 @@ public class PointService {
             PointEvent detail = PointEvent.builder()
                     .order(order)
                     .point(acc)
-                    .detailType(PointEventType.USE)
+                    .pointEventType(PointEventType.USE)
                     .amount(canUseFromThis)
                     .build();
             pointDetailRepository.save(detail);
@@ -226,10 +242,10 @@ public class PointService {
 
             Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
-                // 만료된 경우 신규 적립 처리 (2999-12-31까지)
-                createNewAccumulationForExpiredCancellation(order.getUserId(), canCancelFromThis, acc);
-                // 만료된 경우에도 UserAccount 입장에선 사용 취소(복구) 처리됨
-                user.cancelUsage(canCancelFromThis, acc.getType());
+                // 만료된 경우 신규 적립 처리 (2999-12-31까지, originPointId/rootPointId 상속)
+                user.addPoint(canCancelFromThis, acc.getType());
+                doAccumulate(order.getUserId(), canCancelFromThis, PointSourceType.AUTO_RESTORED, acc.getType(),
+                        LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getId(), acc.getRootPointId());
             } else {
                 // 만료되지 않은 경우 기존 적립 건 잔액 복구
                 acc.restore(canCancelFromThis);
@@ -241,7 +257,7 @@ public class PointService {
             PointEvent cancelDetail = PointEvent.builder()
                     .order(order)
                     .point(acc)
-                    .detailType(PointEventType.USE_CANCEL)
+                    .pointEventType(PointEventType.USE_CANCEL)
                     .amount(canCancelFromThis)
                     .orderCancel(orderCancel)
                     .build();
@@ -256,37 +272,6 @@ public class PointService {
                 .stream()
                 .mapToLong(PointEvent::getAmount)
                 .sum();
-    }
-
-    /**
-     * 사용 취소 시 만료된 포인트에 대해 신규 적립 내역만 생성 (UserAccount 잔액은 이미 업데이트됨)
-     */
-    private void createNewAccumulationForExpiredCancellation(String userId, Long amount, Point originPoint) {
-        LocalDateTime now = LocalDateTime.now();
-        // 만료된 포인트 사용 취소 시 기본적으로 2999-12-31까지로 재적립 (요구사항에 맞춰 정책 결정 가능)
-        LocalDateTime expiryDate = LocalDateTime.of(2999, 12, 31, 23, 59, 59);
-        
-        Point point = Point.builder()
-                .userId(userId)
-                .pointKey(generatePointKey())
-                .accumulatedPoint(amount)
-                .remainingPoint(amount)
-                .type(originPoint.getType())
-                .pointSourceType(PointSourceType.AUTO_RESTORED)
-                .originPointId(originPoint.getId())
-                .rootPointId(originPoint.getRootPointId())
-                .expiryDateTime(expiryDate)
-                .expiryDate(expiryDate.toLocalDate())
-                .isCancelled(false)
-                .build();
-        pointRepository.save(point);
-
-        PointEvent detail = PointEvent.builder()
-                .point(point)
-                .detailType(PointEventType.REISSUE)
-                .amount(amount)
-                .build();
-        pointDetailRepository.save(detail);
     }
 
     /**

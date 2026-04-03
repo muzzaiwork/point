@@ -158,7 +158,7 @@ public class PointScenarioTest {
         System.out.println("---|------|--------|---------|----------");
         pointUsageDetailRepository.findAll().forEach(d -> 
             System.out.printf("%d | %s | %d | %s | %s\n", 
-                d.getId(), d.getDetailType(), d.getAmount(), 
+                d.getId(), d.getPointEventType(), d.getAmount(),
                 d.getOrder() != null ? d.getOrder().getOrderNo() : "-", 
                 d.getPoint().getPointKey()));
 

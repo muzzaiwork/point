@@ -30,7 +30,7 @@ public class PointEvent extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PointEventType detailType;
+    private PointEventType pointEventType;
 
     @Column(nullable = false)
     private Long amount; // 금액

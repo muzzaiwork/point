@@ -295,10 +295,10 @@ sequenceDiagram
 |----|----------|-----------------|----------------|-------------|
 | 1 | 20260403000001 | 1000 | ~~1000~~ → **0** | ~~false~~ → **true** |
 
-**POINT_EVENT** (신규 추가)
-
+**POINT_EVENT** (기존 + 신규 추가)
 | id | pointId | orderNo | pointEventType | amount |
 |----|---------|---------|----------------|--------|
+| 1 | 1 | null | ACCUMULATE | 1000 |
 | 2 | 1 | null | ACCUMULATE_CANCEL | 1000 |
 
 **USER_ACCOUNT** (변경)

@@ -159,10 +159,10 @@ sequenceDiagram
     Controller->>Service: accumulate()
     Service->>DB: 사용자 조회 (Pessimistic Lock)
     DB-->>Service: User 객체 반환
-    Service->>UserEntity: addPoint(amount)
+    Service->>UserEntity: accumulatePoint(amount)
     Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
     UserEntity-->>Service: 검증 완료 및 잔액 업데이트
-    Service->>PointEntity: Point 객체 생성 (pointSourceType, rootPointId 설정)
+    Service->>PointEntity: Point 객체 생성 (pointSourceType 설정)
     Note over PointEntity: @PostPersist로 rootPointId 자동 초기화
     Service->>DB: PointEvent(ACCUMULATE) 저장 & User 업데이트
     Service-->>Controller: pointKey 반환
@@ -187,7 +187,7 @@ flowchart TD
     F --> G[Point 엔티티 생성\npointSourceType / pointType\naccumulatedPoint / remainingPoint\nexpiredAt]
     G --> H[(DB: Point 저장\n@PostPersist → rootPointId = id)]
 
-    H --> I[PointEvent 생성\ndetailType = ACCUMULATE\namount]
+    H --> I[PointEvent 생성\npointEventType = ACCUMULATE\namount]
     I --> J[(DB: PointEvent 저장\nUserAccount 업데이트)]
 
     J --> K([✅ pointKey 반환])
@@ -208,8 +208,8 @@ flowchart TD
 
 **POINT_EVENT**
 
-| id | pointId | orderNo | detailType | amount |
-|----|---------|---------|------------|--------|
+| id | pointId | orderNo | pointEventType | amount |
+|----|---------|---------|----------------|--------|
 | 1 | 1 | ORD001 | ACCUMULATE | 1000 |
 
 **USER_ACCOUNT**
@@ -293,8 +293,8 @@ sequenceDiagram
 
 **POINT_EVENT** (신규 추가)
 
-| id | pointId | orderNo | detailType | amount |
-|----|---------|---------|------------|--------|
+| id | pointId | orderNo | pointEventType | amount |
+|----|---------|---------|----------------|--------|
 | 2 | 1 | null | ACCUMULATE_CANCEL | 1000 |
 
 **USER_ACCOUNT** (변경)
@@ -391,8 +391,8 @@ sequenceDiagram
 
 **POINT_EVENT** (신규 추가)
 
-| id | pointId | orderNo | detailType | amount |
-|----|---------|---------|------------|--------|
+| id | pointId | orderNo | pointEventType | amount |
+|----|---------|---------|----------------|--------|
 | 3 | 1 | A1234 | USE | 1000 |
 | 4 | 2 | A1234 | USE | 500 |
 
@@ -461,10 +461,10 @@ sequenceDiagram
             Service->>EventEntity: PointEvent(USE_CANCEL) 생성
         else 이미 만료됨
             Service->>PointEntity: 신규 Point 생성 (sourceType=AUTO_RESTORED, rootPointId 상속)
-            Service->>EventEntity: PointEvent(REISSUE) 생성
+            Service->>EventEntity: PointEvent(ACCUMULATE) 생성
         end
     end
-    Service->>UserEntity: addPoint(amount)
+    Service->>UserEntity: cancelUsage(amount)
     Service->>DB: 모든 변경 사항 저장
 ```
 
@@ -489,8 +489,8 @@ sequenceDiagram
 
 **POINT_EVENT** (신규 추가)
 
-| id | pointId | orderNo | detailType | amount |
-|----|---------|---------|------------|--------|
+| id | pointId | orderNo | pointEventType | amount |
+|----|---------|---------|----------------|--------|
 | 5 | 2 | A1234 | USE_CANCEL | 500 |
 
 **USER_ACCOUNT** (변경)
@@ -499,7 +499,7 @@ sequenceDiagram
 |--------|----------------|----------|
 | user1 | ~~300~~ → **800** | ~~1500~~ → **1000** |
 
-> 💡 만료된 포인트 취소 시: 원본 복구 대신 `sourceType=AUTO_RESTORED`인 신규 Point가 생성되고 `REISSUE` 이벤트가 기록됩니다. 신규 Point는 원본의 `rootPointId`를 상속합니다.
+> 💡 만료된 포인트 취소 시: 원본 복구 대신 `sourceType=AUTO_RESTORED`인 신규 Point가 생성되고 `ACCUMULATE` 이벤트가 기록됩니다. 신규 Point는 원본의 `rootPointId`를 상속합니다.
 
 </details>
 
@@ -513,7 +513,7 @@ sequenceDiagram
   - `MANUAL`(수기 지급) 포인트를 최우선으로 사용합니다.
   - 그 다음 만료일이 임박한 순서(`expiryDate ASC`)로 자동 차감됩니다.
 - **🔍 이벤트 기반 이력 추적**: 
-  - `PointEvent` 테이블에 `ACCUMULATE`, `USE`, `USE_CANCEL`, `ACCUMULATE_CANCEL`, `EXPIRE`, `REISSUE` 타입으로 모든 포인트 활동을 기록합니다.
+  - `PointEvent` 테이블에 `ACCUMULATE`, `USE`, `USE_CANCEL`, `ACCUMULATE_CANCEL`, `EXPIRE`, `ACCUMULATE` 타입으로 모든 포인트 활동을 기록합니다.
   - 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 1원 단위로 정밀하게 추적할 수 있습니다.
 - **🌳 포인트 계보 추적 (`rootPointId`)**: 
   - 모든 포인트는 `rootPointId`를 보유하며, 만료 후 재적립된 포인트도 원본의 `rootPointId`를 상속합니다.
@@ -562,10 +562,13 @@ public static class AccumulateRequest {
     private Long amount;
 }
 
-// 도메인 검증 (User.java)
-public void addPoint(Long amount) {
-    if (this.totalPoint + amount > this.maxRetentionPoint) {
-        throw new BusinessException(ResultCode.LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트 초과");
+// 도메인 검증 (UserAccount.java)
+public void accumulatePoint(Long amount, PointType type) {
+    if (amount > this.maxAccumulationPoint) {
+        throw new BusinessException(ResultCode.ACCUMULATION_LIMIT_EXCEEDED, "1회 적립 가능 한도 초과");
+    }
+    if (this.remainingPoint + amount > this.maxRetentionPoint) {
+        throw new BusinessException(ResultCode.RETENTION_LIMIT_EXCEEDED, "개인별 최대 보유 가능 포인트 초과");
     }
 }
 ```

@@ -13,8 +13,7 @@ public enum PointEventType {
     ACCUMULATE_CANCEL("적립취소"),
     USE("사용"),
     USE_CANCEL("사용취소"),
-    EXPIRE("만료"),
-    REISSUE("재발급");
+    EXPIRE("만료");
 
     private final String description;
 }

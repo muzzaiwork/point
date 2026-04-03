@@ -27,7 +27,3 @@ logging:
   jackson:
     serialization:
       fail-on-empty-beans: false
-
-point:
-  accumulation:
-    max-limit: 100000

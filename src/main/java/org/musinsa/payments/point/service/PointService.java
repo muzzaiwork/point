@@ -28,9 +28,6 @@ public class PointService {
     private final UserAccountRepository userAccountRepository;
     private final PointKeySequenceRepository sequenceRepository;
 
-    @Value("${point.accumulation.max-limit}")
-    private long maxSystemAccumulationLimit;
-
     /**
      * 포인트를 적립한다.
      * @param userId 사용자 ID
@@ -47,16 +44,11 @@ public class PointService {
         UserAccount user = userAccountRepository.findByUserIdWithLock(userId)
                 .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
 
-        // 1. 시스템 공통 적립 상한 검증
-        if (amount > maxSystemAccumulationLimit) {
-            throw new BusinessException(ResultCode.ACCUMULATION_LIMIT_EXCEEDED, "시스템 적립 상한(" + maxSystemAccumulationLimit + ")을 초과하였습니다.");
-        }
-
-        // 2. 만료일 설정 (미입력 시 2999-12-31)
+        // 1. 만료일 설정 (미입력 시 2999-12-31)
         LocalDateTime expiryDate = resolveExpiryDate(expiryDays);
 
-        // 3. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
-        user.addPoint(amount, type);
+        // 2. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
+        user.accumulatePoint(amount, type);
 
         return doAccumulate(userId, amount, pointSourceType, type, expiryDate, orderNo, null, null);
     }
@@ -84,16 +76,13 @@ public class PointService {
 
         pointRepository.save(point);
 
-        PointEventType eventType = (pointSourceType == PointSourceType.AUTO_RESTORED)
-                ? PointEventType.REISSUE
-                : PointEventType.ACCUMULATE;
-
-        PointEvent detail = PointEvent.builder()
+        PointEvent pointEvent = PointEvent.builder()
                 .point(point)
-                .pointEventType(eventType)
+                .pointEventType(PointEventType.ACCUMULATE)
                 .amount(amount)
                 .build();
-        pointEventRepository.save(detail);
+
+        pointEventRepository.save(pointEvent);
 
         return point.getPointKey();
     }
@@ -214,25 +203,13 @@ public class PointService {
         orderCancelRepository.save(orderCancel);
 
         // 3. 사용자 잔액 복구 (한도 체크 포함)
-        // user.addPoint(cancelAmount)는 더 이상 사용하지 않음. 
-        // 하위 루프에서 각 적립 타입별로 cancelUsage 호출하여 정밀하게 복구함.
 
-        // 4. 포인트 적립 건별 복구 또는 신규 적립 (만료된 경우)
-        // 사용의 역순(최근에 사용된 순서)으로 복구 진행
         List<PointEvent> details = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.USE);
         long remainingToCancel = cancelAmount;
 
         for (PointEvent useDetail : details) {
             if (remainingToCancel <= 0) break;
 
-            // 이미 취소된 금액을 제외하고 취소 가능한 금액 계산
-            // PointDetail이 분리되었으므로, 해당 USE 디테일에 대해 취소된 내역들을 합산해야 할 수도 있음.
-            // 하지만 설계상 USE_CANCEL이 USE를 참조하면 됨.
-            
-            // 현재 USE_CANCEL이 어떤 USE에 대한 취소인지 기록하기 위해 PointDetail에 parentDetailId 같은게 있으면 좋겠지만
-            // 일단은 point와 order가 같으면 추적 가능함.
-            // 기존 로직은 PointUsageDetail 하나에서 canceledPoint를 업데이트했음.
-            // 이제는 별도 Row를 쌓으므로, 이미 취소된 양을 계산해야 함.
             long alreadyCanceledAmount = getAlreadyCanceledAmount(useDetail);
             long canCancelFromThis = Math.min(useDetail.getAmount() - alreadyCanceledAmount, remainingToCancel);
             if (canCancelFromThis <= 0) continue;
@@ -240,7 +217,7 @@ public class PointService {
             Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
                 // 만료된 경우 신규 적립 처리 (2999-12-31까지, originPointId/rootPointId 상속)
-                // addPoint() 대신 cancelUsage()를 사용하여 1회 적립 한도 검증을 우회
+                // accumulatePoint() 대신 cancelUsage()를 사용하여 1회 적립 한도 검증을 우회
                 user.cancelUsage(canCancelFromThis, acc.getType());
                 doAccumulate(order.getUserId(), canCancelFromThis, PointSourceType.AUTO_RESTORED, acc.getType(),
                         LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getId(), acc.getRootPointId());

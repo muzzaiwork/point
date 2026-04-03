@@ -106,7 +106,7 @@ public class UserAccount extends BaseEntity {
      * @param amount 적립할 금액
      * @param type 포인트 타입 (무료/유료)
      */
-    public void addPoint(Long amount, PointType type) {
+    public void accumulatePoint(Long amount, PointType type) {
         if (amount < 1) {
             throw new BusinessException(ResultCode.INVALID_ACCUMULATION_AMOUNT);
         }

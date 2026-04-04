@@ -1,6 +1,7 @@
 package org.musinsa.payments.point.repository;
 
 import org.musinsa.payments.point.domain.Order;
+import org.musinsa.payments.point.domain.OrderCancel;
 import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointEvent;
 import org.musinsa.payments.point.domain.PointEventType;
@@ -32,6 +33,8 @@ public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
     /**
      * 특정 포인트 건(pointKey)에 연결된 모든 이벤트 이력을 조회한다.
      */
+    List<PointEvent> findByOrderCancelAndPointEventType(OrderCancel orderCancel, PointEventType pointEventType);
+
     @Query("SELECT pe FROM PointEvent pe WHERE pe.point.pointKey = :pointKey ORDER BY pe.id ASC")
     List<PointEvent> findAllByPointKey(@Param("pointKey") String pointKey);
 

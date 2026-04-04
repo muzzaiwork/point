@@ -194,7 +194,10 @@ public class AdminController {
 
             // 포인트별 취소 상세 (USE_CANCEL + AUTO_RESTORED)
             List<PointEvent> useCancelEvents = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.USE_CANCEL);
-            List<PointEvent> autoRestoredEvents = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.EXPIRED_CANCEL_RESTORE);
+            // EXPIRED_CANCEL_RESTORE 이벤트는 order가 null이고 orderCancel로만 연결되므로 orderCancel을 통해 조회
+            List<PointEvent> autoRestoredEvents = cancels.stream()
+                    .flatMap(c -> pointEventRepository.findByOrderCancelAndPointEventType(c, PointEventType.EXPIRED_CANCEL_RESTORE).stream())
+                    .toList();
 
             List<java.util.Map<String, Object>> pointDetails = new java.util.ArrayList<>();
             for (PointEvent e : useCancelEvents) {

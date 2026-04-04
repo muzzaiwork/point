@@ -13,6 +13,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import org.musinsa.payments.point.dto.PointDto;
 
 /**
  * 포인트 비즈니스 로직을 처리하는 서비스 클래스
@@ -252,6 +255,55 @@ public class PointService {
 
             remainingToCancel -= canCancelFromThis;
         }
+    }
+
+    /**
+     * 특정 포인트 건(pointKey)에 연결된 모든 이벤트 이력을 조회한다.
+     */
+    @Transactional(readOnly = true)
+    public List<PointDto.PointEventResponse> getPointHistory(String pointKey) {
+        pointRepository.findByPointKey(pointKey)
+                .orElseThrow(() -> new BusinessException(ResultCode.POINT_NOT_FOUND));
+        return pointEventRepository.findAllByPointKey(pointKey).stream()
+                .map(this::toPointEventResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 특정 사용자의 모든 포인트 이벤트 이력을 조회한다.
+     */
+    @Transactional(readOnly = true)
+    public List<PointDto.PointEventResponse> getUserHistory(String userId) {
+        userAccountRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ResultCode.USER_NOT_FOUND));
+        return pointEventRepository.findAllByUserId(userId).stream()
+                .map(this::toPointEventResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 일별 집계 (정산용): 특정 날짜 범위의 이벤트 타입별 합계를 조회한다.
+     */
+    @Transactional(readOnly = true)
+    public List<PointDto.DailyAggregationResponse> getDailyAggregation(LocalDate startDate, LocalDate endDate) {
+        return pointEventRepository.findDailyAggregation(startDate, endDate).stream()
+                .map(row -> PointDto.DailyAggregationResponse.builder()
+                        .date((LocalDate) row[0])
+                        .pointEventType((PointEventType) row[1])
+                        .totalAmount((Long) row[2])
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private PointDto.PointEventResponse toPointEventResponse(PointEvent pe) {
+        return PointDto.PointEventResponse.builder()
+                .id(pe.getId())
+                .pointEventType(pe.getPointEventType())
+                .amount(pe.getAmount())
+                .pointKey(pe.getPoint() != null ? pe.getPoint().getPointKey() : null)
+                .orderNo(pe.getOrder() != null ? pe.getOrder().getOrderNo() : null)
+                .regDateTime(pe.getRegDateTime() != null ? pe.getRegDateTime().toString() : null)
+                .build();
     }
 
     private long getAlreadyCanceledAmount(PointEvent useDetail) {

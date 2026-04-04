@@ -8,7 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.common.ApiResponse;
 import org.musinsa.payments.point.dto.PointDto;
 import org.musinsa.payments.point.service.PointService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 포인트 시스템 API 컨트롤러
@@ -82,5 +86,45 @@ public class PointController {
             @Valid @RequestBody PointDto.CancelUsageRequest request) {
         pointService.cancelUsage(orderNo, request.getAmount());
         return ApiResponse.success("사용 취소 성공");
+    }
+
+    /**
+     * 특정 포인트 건의 모든 이벤트 이력 조회
+     * @param pointKey 조회할 포인트 키
+     * @return 해당 포인트 건의 이벤트 이력 목록
+     */
+    @GetMapping("/history/point/{pointKey}")
+    @Operation(summary = "포인트 건별 이력 조회", description = "특정 pointKey에 연결된 모든 이벤트 이력(적립, 사용, 취소 등)을 조회합니다.")
+    public ApiResponse<List<PointDto.PointEventResponse>> getPointHistory(
+            @Parameter(description = "조회할 포인트 키", example = "20260401000001") @PathVariable String pointKey) {
+        return ApiResponse.success("조회 성공", pointService.getPointHistory(pointKey));
+    }
+
+    /**
+     * 특정 사용자의 모든 포인트 이벤트 이력 조회
+     * @param userId 조회할 사용자 ID
+     * @return 해당 사용자의 전체 이벤트 이력 목록
+     */
+    @GetMapping("/history/user/{userId}")
+    @Operation(summary = "사용자별 이력 조회", description = "특정 사용자의 모든 포인트 이벤트 이력을 조회합니다.")
+    public ApiResponse<List<PointDto.PointEventResponse>> getUserHistory(
+            @Parameter(description = "조회할 사용자 ID", example = "user1") @PathVariable String userId) {
+        return ApiResponse.success("조회 성공", pointService.getUserHistory(userId));
+    }
+
+    /**
+     * 일별 집계 조회 (정산용)
+     * @param startDate 시작 날짜
+     * @param endDate 종료 날짜
+     * @return 날짜별 이벤트 타입별 합계 목록
+     */
+    @GetMapping("/history/daily")
+    @Operation(summary = "일별 집계 조회 (정산용)", description = "특정 기간의 날짜별 포인트 이벤트 타입별 합계를 조회합니다.")
+    public ApiResponse<List<PointDto.DailyAggregationResponse>> getDailyAggregation(
+            @Parameter(description = "시작 날짜 (yyyy-MM-dd)", example = "2026-04-01")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @Parameter(description = "종료 날짜 (yyyy-MM-dd)", example = "2026-04-30")
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ApiResponse.success("조회 성공", pointService.getDailyAggregation(startDate, endDate));
     }
 }

@@ -5,9 +5,14 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.musinsa.payments.point.domain.PointEventType;
 import org.musinsa.payments.point.domain.PointSourceType;
+
+import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 포인트 관련 데이터 전달 객체(DTO)
@@ -89,5 +94,61 @@ public class PointDto {
     public static class PointResponse {
         @Schema(description = "포인트 또는 주문 식별 키", example = "20260401000001")
         private String pointKey;
+    }
+
+    /**
+     * 포인트 이벤트 이력 단건 응답
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "포인트 이벤트 이력")
+    public static class PointEventResponse {
+        @Schema(description = "이벤트 ID")
+        private Long id;
+        @Schema(description = "이벤트 타입 (ACCUMULATE, USE, USE_CANCEL 등)")
+        private PointEventType pointEventType;
+        @Schema(description = "금액")
+        private Long amount;
+        @Schema(description = "연관 포인트 키")
+        private String pointKey;
+        @Schema(description = "연관 주문 번호")
+        private String orderNo;
+        @Schema(description = "등록 일시")
+        private String regDateTime;
+    }
+
+    /**
+     * 일별 집계 응답 (정산용)
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "일별 포인트 집계 (정산용)")
+    public static class DailyAggregationResponse {
+        @Schema(description = "집계 일자")
+        private LocalDate date;
+        @Schema(description = "이벤트 타입")
+        private PointEventType pointEventType;
+        @Schema(description = "합계 금액")
+        private Long totalAmount;
+    }
+
+    /**
+     * 일별 집계 조회 요청
+     */
+    @Data
+    @NoArgsConstructor
+    @Schema(description = "일별 집계 조회 요청")
+    public static class DailyAggregationRequest {
+        @NotNull(message = "시작 날짜는 필수입니다.")
+        @Schema(description = "시작 날짜 (yyyy-MM-dd)", example = "2026-04-01")
+        private LocalDate startDate;
+
+        @NotNull(message = "종료 날짜는 필수입니다.")
+        @Schema(description = "종료 날짜 (yyyy-MM-dd)", example = "2026-04-30")
+        private LocalDate endDate;
     }
 }

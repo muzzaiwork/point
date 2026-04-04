@@ -5,7 +5,10 @@ import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointEvent;
 import org.musinsa.payments.point.domain.PointEventType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
@@ -18,4 +21,23 @@ public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
     List<PointEvent> findByOrderAndPointEventTypeOrderByIdDesc(Order order, PointEventType pointEventType);
 
     List<PointEvent> findByOrderAndPointAndPointEventType(Order order, Point point, PointEventType pointEventType);
+
+    /**
+     * 특정 포인트 건(pointKey)에 연결된 모든 이벤트 이력을 조회한다.
+     */
+    @Query("SELECT pe FROM PointEvent pe WHERE pe.point.pointKey = :pointKey ORDER BY pe.id ASC")
+    List<PointEvent> findAllByPointKey(@Param("pointKey") String pointKey);
+
+    /**
+     * 특정 사용자의 모든 포인트 이벤트 이력을 조회한다.
+     * Point 또는 Order 중 하나를 통해 userId를 매칭한다.
+     */
+    @Query("SELECT pe FROM PointEvent pe WHERE (pe.point IS NOT NULL AND pe.point.userId = :userId) OR (pe.order IS NOT NULL AND pe.order.userId = :userId) ORDER BY pe.id ASC")
+    List<PointEvent> findAllByUserId(@Param("userId") String userId);
+
+    /**
+     * 일별 집계 (정산용): 특정 날짜 범위의 이벤트 타입별 합계를 조회한다.
+     */
+    @Query("SELECT pe.regDate, pe.pointEventType, SUM(pe.amount) FROM PointEvent pe WHERE pe.regDate BETWEEN :startDate AND :endDate GROUP BY pe.regDate, pe.pointEventType ORDER BY pe.regDate ASC, pe.pointEventType ASC")
+    List<Object[]> findDailyAggregation(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

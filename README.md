@@ -174,7 +174,7 @@ API 명세의 공통 사항 및 오류 코드 정의입니다.
 </details>
 
 <details>
-<summary>🔄 [시퀀스 다이어그램] 포인트 적립</summary>
+<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 적립</summary>
 
 ```mermaid
 sequenceDiagram
@@ -198,6 +198,12 @@ sequenceDiagram
     Service-->>Controller: pointKey 반환
     Controller-->>Client: 포인트 적립 성공 응답
 ```
+
+> **💡 주요 로직 & 정책**
+> - 사용자 조회 시 **Pessimistic Lock**을 적용하여 동시 적립 요청에 의한 보유 한도 초과를 방지합니다.
+> - `UserAccount.accumulatePoint()` 내부에서 **1회 적립 한도** 및 **개인 최대 보유 한도**를 검증합니다.
+> - `Point` 엔티티 저장 후 `@PostPersist`를 통해 `rootPointId`가 자신의 `id`로 자동 초기화됩니다.
+> - `pointSourceType`이 `MANUAL`인 경우 수기 지급으로 식별되어 사용 시 최우선 차감됩니다.
 
 </details>
 
@@ -273,7 +279,7 @@ sequenceDiagram
 </details>
 
 <details>
-<summary>🔄 [시퀀스 다이어그램] 포인트 적립 취소</summary>
+<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 적립 취소</summary>
 
 ```mermaid
 sequenceDiagram
@@ -306,6 +312,11 @@ sequenceDiagram
     Service-->>Controller: 포인트 적립 취소 성공 반환
     Controller-->>Client: 포인트 적립 취소 성공 응답
 ```
+
+> **💡 주요 로직 & 정책**
+> - `Point.cancel()` 내부에서 `isCancelled == true`이면 **중복 취소 예외**, `remainingPoint < accumulatedPoint`이면 **이미 사용된 포인트 예외**를 발생시킵니다.
+> - 취소 성공 시 `remainingPoint = 0`, `isCancelled = true`로 변경되며 `PointEvent(ACCUMULATE_CANCEL)`이 기록됩니다.
+> - `UserAccount`의 `accumulatedPoint`와 `remainingPoint`가 함께 차감됩니다.
 
 </details>
 
@@ -392,7 +403,7 @@ sequenceDiagram
 </details>
 
 <details>
-<summary>🔄 [시퀀스 다이어그램] 포인트 사용</summary>
+<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 사용</summary>
 
 ```mermaid
 sequenceDiagram
@@ -421,6 +432,11 @@ sequenceDiagram
     Service->>DB: 모든 엔티티 저장 & User 업데이트
     Service-->>Controller: 포인트 사용 성공(orderNo) 반환
 ```
+
+> **💡 주요 로직 & 정책**
+> - 사용 가능한 포인트는 **`MANUAL` 타입 우선, 이후 만료일 임박 순(`expiryDate ASC`)**으로 자동 정렬되어 차감됩니다.
+> - 하나의 사용 건이 여러 적립 건에서 차감될 경우, `PointEvent(USE)`가 적립 건별로 **1원 단위**로 분리 기록됩니다.
+> - `Order` 엔티티는 `orderNo`를 유니크 식별자로 사용하며, 중복 주문 번호 요청 시 예외가 발생합니다.
 
 </details>
 
@@ -516,7 +532,7 @@ sequenceDiagram
 </details>
 
 <details>
-<summary>🔄 [시퀀스 다이어그램] 포인트 사용 취소</summary>
+<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 사용 취소</summary>
 
 ```mermaid
 sequenceDiagram
@@ -557,6 +573,12 @@ sequenceDiagram
 
     Service->>Client: 취소 완료 응답
 ```
+
+> **💡 주요 로직 & 정책**
+> - `PointEvent(USE)` 이력을 **역순(LIFO)**으로 조회하여 가장 최근에 사용된 적립 건부터 순서대로 복구합니다.
+> - 복구 대상 적립 건이 **만료된 경우**, 원본 복구 대신 `AUTO_RESTORED` 타입의 신규 포인트를 생성하며 원본의 `rootPointId`를 상속합니다.
+> - `Order.cancel()`에서 `canceledPoint`를 누적하며, 전액 취소 시 `TOTAL_CANCEL`, 부분 취소 시 `PARTIAL_CANCEL` 상태로 변경됩니다.
+> - `OrderCancel` 이력에 취소 금액과 일시가 별도 기록됩니다.
 
 </details>
 
@@ -652,25 +674,6 @@ sequenceDiagram
 > 신규 Point는 원본의 `rootPointId`를 상속하여 계보가 유지됩니다.
 
 </details>
-
----
-
-### 3.3 핵심 비즈니스 로직 및 정책
-- **✨ 포인트 사용 우선순위**: 
-  - `MANUAL`(수기 지급) 포인트를 최우선으로 사용합니다.
-  - 그 다음 만료일이 임박한 순서(`expiryDate ASC`)로 자동 차감됩니다.
-- **🔍 이벤트 기반 이력 추적**: 
-  - `PointEvent` 테이블에 `ACCUMULATE`, `USE`, `USE_CANCEL`, `ACCUMULATE_CANCEL`, `EXPIRE`, `ACCUMULATE` 타입으로 모든 포인트 활동을 기록합니다.
-  - 하나의 사용 건이 어떤 적립 건들에서 얼마씩 차감되었는지 1원 단위로 정밀하게 추적할 수 있습니다.
-- **🌳 포인트 계보 추적 (`rootPointId`)**: 
-  - 모든 포인트는 `rootPointId`를 보유하며, 만료 후 재적립된 포인트도 원본의 `rootPointId`를 상속합니다.
-  - 재귀 쿼리 없이 `rootPointId` 단일 조건으로 전체 적립 계보를 조회할 수 있습니다.
-- **♻️ 만료 포인트 자동 신규 적립**: 
-  - 사용 취소 시점에 이미 만료된 포인트는 원본 복구가 아닌, `AUTO_RESTORED` 타입의 신규 포인트로 자동 적립 처리됩니다.
-  - 신규 적립 포인트는 원본의 `rootPointId`를 상속하여 계보가 유지됩니다.
-- **🧪 시나리오 검증**: 
-  - 요구사항 예시 시나리오에 따른 데이터 변화는 [🔍 시나리오 흐름 문서](docs/시나리오%20흐름.md)에서 확인할 수 있습니다.
-  - 실제 동작은 [💻 시나리오 테스트 코드 (JUnit 5)](src/test/java/org/musinsa/payments/point/scenario/PointScenarioTest.java)를 통해 검증되었습니다.
 
 ---
 

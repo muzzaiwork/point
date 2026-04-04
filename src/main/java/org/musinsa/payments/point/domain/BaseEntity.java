@@ -10,13 +10,13 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import org.musinsa.payments.point.config.DateTimeContext;
 
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
 
-    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime regDateTime;
 
@@ -33,7 +33,8 @@ public abstract class BaseEntity {
     // JPA Auditing은 LocalDateTime만 자동으로 채워주므로, LocalDate는 @PrePersist, @PreUpdate에서 처리
     @jakarta.persistence.PrePersist
     public void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime ctx = DateTimeContext.get();
+        LocalDateTime now = (ctx != null) ? ctx : LocalDateTime.now();
         if (regDateTime == null) regDateTime = now;
         if (updDateTime == null) updDateTime = now;
         regDate = now.toLocalDate();

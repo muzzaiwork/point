@@ -33,8 +33,8 @@ public interface PointRepository extends JpaRepository<Point, Long> {
            "(:cancelled IS NULL OR p.isCancelled = :cancelled) AND " +
            "(:type IS NULL OR p.type = :type) AND " +
            "(:sourceType IS NULL OR p.pointSourceType = :sourceType) AND " +
-           "(:startDate IS NULL OR p.expiryDate >= :startDate) AND " +
-           "(:endDate IS NULL OR p.expiryDate <= :endDate) " +
+           "(:startDate IS NULL OR p.regDate >= :startDate) AND " +
+           "(:endDate IS NULL OR p.regDate <= :endDate) " +
            "ORDER BY p.id DESC")
     Page<Point> searchPoints(
             @Param("userId") String userId,

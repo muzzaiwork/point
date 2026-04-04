@@ -174,6 +174,7 @@ public class PointService {
 
             long canUseFromThis = Math.min(acc.getRemainingPoint(), remainingToUse);
             acc.use(canUseFromThis);
+            pointRepository.save(acc);
             user.usePoint(canUseFromThis, acc.getType());
             remainingToUse -= canUseFromThis;
 

@@ -19,4 +19,6 @@ public interface PointRepository extends JpaRepository<Point, Long> {
     @Query("SELECT p FROM Point p WHERE p.userId = :userId AND p.remainingPoint > 0 AND p.isExpired = false AND p.isCancelled = false " +
            "ORDER BY CASE WHEN p.pointSourceType = 'MANUAL' THEN 1 ELSE 0 END DESC, p.expiryDateTime ASC")
     List<Point> findAvailablePoints(@Param("userId") String userId);
+
+    List<Point> findByUserIdOrderByIdDesc(String userId);
 }

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - 사용자 계정 목록</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #333; }
+        header { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; gap: 24px; }
+        header h1 { font-size: 1.2rem; font-weight: 600; }
+        nav a { color: #aac4ff; text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border-radius: 4px; }
+        nav a:hover, nav a.active { background: #16213e; color: #fff; }
+        .container { max-width: 1200px; margin: 32px auto; padding: 0 24px; }
+        h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; color: #1a1a2e; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        thead { background: #1a1a2e; color: #fff; }
+        th { padding: 12px 16px; text-align: left; font-size: 0.82rem; font-weight: 500; }
+        td { padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid #f0f0f0; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8f9ff; }
+        .point-link { color: #3b5bdb; font-weight: 600; cursor: pointer; text-decoration: underline; }
+        .point-link:hover { color: #1c3faa; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>🛠 Point Admin</h1>
+    <nav>
+        <a href="/admin/accounts" class="active">사용자 계정</a>
+        <a href="/admin/points">포인트 적립 내역</a>
+    </nav>
+</header>
+<div class="container">
+    <h2>사용자 계정 목록</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>userId</th>
+                <th>이름</th>
+                <th class="num">총 적립 (유료/무료)</th>
+                <th class="num">총 사용 (유료/무료)</th>
+                <th class="num">잔여 포인트 (유료/무료)</th>
+                <th class="num">1회 적립 한도</th>
+                <th class="num">보유 한도</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="a : ${accounts}">
+                <td th:text="${a.id}"></td>
+                <td th:text="${a.userId}"></td>
+                <td th:text="${a.name}"></td>
+                <td class="num">
+                    <a class="point-link" th:href="@{/admin/points(userId=${a.userId})}" th:text="${#numbers.formatInteger(a.accumulatedPoint, 1, 'COMMA')}"></a>
+                    <span style="color:#888; font-size:0.78rem;">
+                        (<span th:text="${#numbers.formatInteger(a.accumulatedPaidPoint, 1, 'COMMA')}"></span>
+                        / <span th:text="${#numbers.formatInteger(a.accumulatedFreePoint, 1, 'COMMA')}"></span>)
+                    </span>
+                </td>
+                <td class="num">
+                    <span th:text="${#numbers.formatInteger(a.usedPoint, 1, 'COMMA')}"></span>
+                    <span style="color:#888; font-size:0.78rem;">
+                        (<span th:text="${#numbers.formatInteger(a.usedPaidPoint, 1, 'COMMA')}"></span>
+                        / <span th:text="${#numbers.formatInteger(a.usedFreePoint, 1, 'COMMA')}"></span>)
+                    </span>
+                </td>
+                <td class="num">
+                    <strong th:text="${#numbers.formatInteger(a.remainingPoint, 1, 'COMMA')}"></strong>
+                    <span style="color:#888; font-size:0.78rem;">
+                        (<span th:text="${#numbers.formatInteger(a.remainingPaidPoint, 1, 'COMMA')}"></span>
+                        / <span th:text="${#numbers.formatInteger(a.remainingFreePoint, 1, 'COMMA')}"></span>)
+                    </span>
+                </td>
+                <td class="num" th:text="${#numbers.formatInteger(a.maxAccumulationPoint, 1, 'COMMA')}"></td>
+                <td class="num" th:text="${#numbers.formatInteger(a.maxRetentionPoint, 1, 'COMMA')}"></td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(accounts)}">
+                <td colspan="8" style="text-align:center; color:#999; padding:32px;">데이터가 없습니다.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

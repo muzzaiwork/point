@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - 포인트 적립 내역</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #333; }
+        header { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; gap: 24px; }
+        header h1 { font-size: 1.2rem; font-weight: 600; }
+        nav a { color: #aac4ff; text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border-radius: 4px; }
+        nav a:hover, nav a.active { background: #16213e; color: #fff; }
+        .container { max-width: 1300px; margin: 32px auto; padding: 0 24px; }
+        .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .toolbar h2 { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; flex: 1; }
+        .search-form { display: flex; gap: 8px; }
+        .search-form input { padding: 7px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.85rem; width: 200px; }
+        .search-form button { padding: 7px 16px; background: #3b5bdb; color: #fff; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; }
+        .search-form button:hover { background: #1c3faa; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        thead { background: #1a1a2e; color: #fff; }
+        th { padding: 12px 16px; text-align: left; font-size: 0.82rem; font-weight: 500; }
+        td { padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid #f0f0f0; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8f9ff; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .badge-free { background: #e7f5ff; color: #1971c2; }
+        .badge-paid { background: #fff3bf; color: #e67700; }
+        .badge-manual { background: #f3f0ff; color: #6741d9; }
+        .badge-order { background: #ebfbee; color: #2f9e44; }
+        .status-cancelled { color: #e03131; font-weight: 600; }
+        .status-expired { color: #868e96; }
+        .status-active { color: #2f9e44; font-weight: 600; }
+        .empty { text-align: center; color: #999; padding: 48px; }
+        .hint { color: #888; font-size: 0.85rem; margin-top: 8px; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>🛠 Point Admin</h1>
+    <nav>
+        <a href="/admin/accounts">사용자 계정</a>
+        <a href="/admin/points" class="active">포인트 적립 내역</a>
+    </nav>
+</header>
+<div class="container">
+    <div class="toolbar">
+        <h2>포인트 적립 내역
+            <span th:if="${userId != null and !#strings.isEmpty(userId)}"
+                  style="font-size:0.9rem; color:#3b5bdb; margin-left:8px;"
+                  th:text="'— ' + ${userId}"></span>
+        </h2>
+        <form class="search-form" method="get" action="/admin/points">
+            <input type="text" name="userId" placeholder="userId 입력"
+                   th:value="${userId}"/>
+            <button type="submit">조회</button>
+        </form>
+    </div>
+
+    <div th:if="${userId == null or #strings.isEmpty(userId)}" class="empty">
+        <p>userId를 입력하여 해당 사용자의 포인트 적립 내역을 조회하세요.</p>
+    </div>
+
+    <div th:if="${userId != null and !#strings.isEmpty(userId)}">
+        <table>
+            <thead>
+                <tr>
+                    <th>pointKey</th>
+                    <th>타입</th>
+                    <th>출처</th>
+                    <th>orderNo</th>
+                    <th class="num">적립 금액</th>
+                    <th class="num">잔여 금액</th>
+                    <th>만료일</th>
+                    <th>상태</th>
+                    <th>적립일시</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="p : ${points}">
+                    <td style="font-family:monospace; font-size:0.8rem;" th:text="${p.pointKey}"></td>
+                    <td>
+                        <span class="badge" th:classappend="${p.type.name() == 'PAID'} ? 'badge-paid' : 'badge-free'"
+                              th:text="${p.type.name()}"></span>
+                    </td>
+                    <td>
+                        <span class="badge" th:classappend="${p.pointSourceType.name() == 'MANUAL'} ? 'badge-manual' : 'badge-order'"
+                              th:text="${p.pointSourceType.name()}"></span>
+                    </td>
+                    <td style="font-size:0.8rem; color:#555;" th:text="${p.orderNo != null ? p.orderNo : '-'}"></td>
+                    <td class="num" th:text="${#numbers.formatInteger(p.accumulatedPoint, 1, 'COMMA')}"></td>
+                    <td class="num" th:text="${#numbers.formatInteger(p.remainingPoint, 1, 'COMMA')}"></td>
+                    <td style="font-size:0.8rem;" th:text="${#temporals.format(p.expiryDate, 'yyyy-MM-dd')}"></td>
+                    <td>
+                        <span th:if="${p.cancelled}" class="status-cancelled">취소됨</span>
+                        <span th:if="${p.expired and !p.cancelled}" class="status-expired">만료됨</span>
+                        <span th:if="${!p.cancelled and !p.expired}" class="status-active">활성</span>
+                    </td>
+                    <td style="font-size:0.8rem;" th:text="${#temporals.format(p.regDateTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
+                </tr>
+                <tr th:if="${points == null or #lists.isEmpty(points)}">
+                    <td colspan="9" class="empty">해당 사용자의 적립 내역이 없습니다.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

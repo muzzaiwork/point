@@ -26,7 +26,7 @@ public interface PointRepository extends JpaRepository<Point, Long> {
 
     List<Point> findByUserIdOrderByIdDesc(String userId);
 
-    Optional<Point> findByOriginPointKey(String originPointKey);
+    List<Point> findByOriginPointKey(String originPointKey);
 
     @Query("SELECT p FROM Point p WHERE " +
            "(:userId IS NULL OR p.userId = :userId) AND " +

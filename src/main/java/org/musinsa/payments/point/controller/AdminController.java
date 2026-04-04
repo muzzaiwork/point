@@ -111,8 +111,11 @@ public class AdminController {
 
         Map<Long, String> restoredPointKeyMap = new HashMap<>();
         for (Point p : points) {
-            pointRepository.findByOriginPointKey(p.getPointKey())
-                    .ifPresent(restored -> restoredPointKeyMap.put(p.getId(), restored.getPointKey()));
+            List<Point> restoredList = pointRepository.findByOriginPointKey(p.getPointKey());
+            if (!restoredList.isEmpty()) {
+                restoredPointKeyMap.put(p.getId(), restoredList.stream()
+                        .map(Point::getPointKey).collect(java.util.stream.Collectors.joining(", ")));
+            }
         }
 
         int totalPages = points.getTotalPages();

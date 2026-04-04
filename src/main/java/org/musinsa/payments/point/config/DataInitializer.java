@@ -41,6 +41,11 @@ public class DataInitializer implements ApplicationRunner {
         "seed06", "seed07", "seed08", "seed09", "seed10"
     };
 
+    // 복잡한 케이스 전용 유저 목록
+    private static final String[] COMPLEX_USER_IDS = {
+        "complex01", "complex02", "complex03"
+    };
+
     @Override
     public void run(ApplicationArguments args) {
         if (userAccountRepository.findByUserId("seed01").isPresent()) {
@@ -90,6 +95,19 @@ public class DataInitializer implements ApplicationRunner {
                 } finally {
                     DateTimeContext.clear();
                 }
+            }
+        }
+
+        // 복잡한 케이스 유저 생성 및 시나리오 실행 (3번 반복)
+        createComplexUsers();
+        LocalDateTime complexBase = LocalDate.of(2026, 1, 1).atTime(10, 0, 0);
+        for (int i = 0; i < COMPLEX_USER_IDS.length; i++) {
+            try {
+                totalEvents += runComplexScenario(COMPLEX_USER_IDS[i], complexBase.plusDays(i));
+            } catch (Exception e) {
+                log.warn("[DataInitializer] 복잡한 케이스 실행 중 오류: {}", e.getMessage());
+            } finally {
+                DateTimeContext.clear();
             }
         }
 
@@ -306,6 +324,107 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     /**
+     * 가장 복잡한 케이스:
+     * [1회~3회 반복]
+     *   - 적립
+     *   - 사용 2건
+     *   - 사용취소 4건 (마지막 취소 시 만료 → AUTO_RESTORED 재지급)
+     *   - 재지급건에서 사용 2건
+     *   - 사용취소 2건 (마지막 취소 시 만료 → AUTO_RESTORED 재지급)
+     */
+    private int runComplexScenario(String userId, LocalDateTime base) {
+        int totalEvents = 0;
+        int minuteOffset = 0;
+        String prevRestoredPointKey = null;
+
+        for (int round = 1; round <= 3; round++) {
+            String roundSuffix = "-R" + round;
+
+            // 적립 (만료 30일)
+            setTime(base, minuteOffset);
+            String accOrderNo = "ACC-" + userId + roundSuffix;
+            String pk;
+            if (prevRestoredPointKey == null) {
+                pk = pointService.accumulate(userId, 20000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
+            } else {
+                // 이전 라운드의 재지급 포인트키를 이 라운드의 적립으로 사용
+                pk = prevRestoredPointKey;
+            }
+            minuteOffset += 10;
+            totalEvents += (prevRestoredPointKey == null ? 1 : 0);
+
+            // 사용 1차
+            setTime(base, minuteOffset);
+            String useOrder1 = "USE-" + userId + roundSuffix + "-U1";
+            pointService.use(userId, useOrder1, 3000L);
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 사용 2차
+            setTime(base, minuteOffset);
+            String useOrder2 = "USE-" + userId + roundSuffix + "-U2";
+            pointService.use(userId, useOrder2, 4000L);
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 사용취소 1차 (useOrder1 전액)
+            setTime(base, minuteOffset);
+            pointService.cancelUsage(useOrder1, 3000L);
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 사용취소 2차 (useOrder2 전액)
+            setTime(base, minuteOffset);
+            pointService.cancelUsage(useOrder2, 4000L);
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 재사용 3차
+            setTime(base, minuteOffset);
+            String useOrder3 = "USE-" + userId + roundSuffix + "-U3";
+            pointService.use(userId, useOrder3, 5000L);
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 재사용 4차
+            setTime(base, minuteOffset);
+            String useOrder4 = "USE-" + userId + roundSuffix + "-U4";
+            pointService.use(userId, useOrder4, 6000L);
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 강제 만료 (잔액이 남은 상태)
+            setTime(base, minuteOffset);
+            forceExpire(pk, base.plusMinutes(minuteOffset));
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 사용취소 3차 (useOrder3) → 만료 전 포인트라 정상 취소
+            setTime(base, minuteOffset);
+            try { pointService.cancelUsage(useOrder3, 5000L); totalEvents += 1; } catch (Exception ignored) {}
+            minuteOffset += 10;
+
+            // 사용취소 4차 (useOrder4) → 만료 후 취소 → AUTO_RESTORED 재지급
+            setTime(base, minuteOffset);
+            String restoredPk = null;
+            try {
+                pointService.cancelUsage(useOrder4, 6000L);
+                totalEvents += 1;
+                // 재지급된 포인트키 조회 (가장 최근 적립된 포인트)
+                var restoredPoints = pointRepository.findByUserIdOrderByIdDesc(userId);
+                if (!restoredPoints.isEmpty()) {
+                    restoredPk = restoredPoints.get(0).getPointKey();
+                }
+            } catch (Exception ignored) {}
+            minuteOffset += 10;
+
+            prevRestoredPointKey = restoredPk;
+        }
+
+        return totalEvents;
+    }
+
+    /**
      * 포인트를 강제 만료 처리한다.
      */
     @Transactional
@@ -325,6 +444,19 @@ public class DataInitializer implements ApplicationRunner {
                 pointEventRepository.save(expireEvent);
             }
         });
+    }
+
+    private void createComplexUsers() {
+        String[] names = {"복잡케이스1", "복잡케이스2", "복잡케이스3"};
+        for (int i = 0; i < COMPLEX_USER_IDS.length; i++) {
+            userAccountRepository.save(UserAccount.builder()
+                    .userId(COMPLEX_USER_IDS[i])
+                    .name(names[i])
+                    .maxAccumulationPoint(500000L)
+                    .maxRetentionPoint(5000000L)
+                    .build());
+        }
+        log.info("[DataInitializer] 복잡케이스 유저 {}명 생성 완료.", COMPLEX_USER_IDS.length);
     }
 
     private void createUsers() {

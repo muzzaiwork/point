@@ -6,6 +6,7 @@ import org.musinsa.payments.point.domain.OrderCancel;
 import org.musinsa.payments.point.domain.OrderType;
 import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointEvent;
+import org.musinsa.payments.point.domain.PointEventType;
 import org.musinsa.payments.point.domain.PointSourceType;
 import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.domain.UserAccount;
@@ -187,6 +188,24 @@ public class AdminController {
                 m.put("id", c.getId());
                 m.put("cancelAmount", c.getCancelAmount());
                 m.put("regDateTime", c.getRegDateTime() != null ? c.getRegDateTime().toString() : null);
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/order-use-details")
+    @ResponseBody
+    public ResponseEntity<List<java.util.Map<String, Object>>> orderUseDetails(
+            @RequestParam Long orderId) {
+
+        return orderRepository.findById(orderId).map(order -> {
+            List<PointEvent> events = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.USE);
+            List<java.util.Map<String, Object>> result = events.stream().map(e -> {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("pointKey", e.getPoint() != null ? e.getPoint().getPointKey() : null);
+                m.put("amount", e.getAmount());
+                m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
                 return m;
             }).toList();
             return ResponseEntity.ok(result);

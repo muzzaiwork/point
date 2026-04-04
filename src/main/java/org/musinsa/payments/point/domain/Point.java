@@ -56,6 +56,8 @@ public class Point extends BaseEntity {
 
     private boolean isExpired; // 만료 여부
 
+    private Long expiredPoint; // 만료 시점의 잔여 포인트 (만료된 금액)
+
     private Long originPointId; // 만료 후 취소로 인한 신규 적립 시 원천 적립 ID
 
     private Long rootPointId; // 전체 이력 추적을 위한 최상위 적립 ID
@@ -125,6 +127,7 @@ public class Point extends BaseEntity {
      * 포인트를 만료시킨다.
      */
     public void expire() {
+        this.expiredPoint = this.remainingPoint;
         this.isExpired = true;
         this.remainingPoint = 0L;
     }

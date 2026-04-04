@@ -162,6 +162,7 @@
                 <th class="num">잔여 금액</th>
                 <th>만료일</th>
                 <th>만료여부</th>
+                <th class="num">만료금액</th>
                 <th>상태</th>
                 <th>originPointId</th>
                 <th>재지급 pointKey</th>
@@ -190,6 +191,7 @@
                     <span th:if="${p.expired}" class="status-cancelled">만료</span>
                     <span th:if="${!p.expired}" style="color:#aaa;font-size:0.8rem;">-</span>
                 </td>
+                <td class="num" th:text="${p.expiredPoint != null ? #numbers.formatInteger(p.expiredPoint, 1, 'COMMA') : '-'}"></td>
                 <td>
                     <span th:if="${p.cancelled}"  class="status-cancelled">취소</span>
                     <span th:if="${!p.cancelled}" class="status-active">적립</span>
@@ -199,7 +201,7 @@
                 <td th:text="${#temporals.format(p.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
             </tr>
             <tr th:if="${points == null or #lists.isEmpty(points)}">
-                <td colspan="13" class="empty">조회된 내역이 없습니다.</td>
+                <td colspan="14" class="empty">조회된 내역이 없습니다.</td>
             </tr>
         </tbody>
     </table>

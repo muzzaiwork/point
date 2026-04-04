@@ -104,10 +104,9 @@
                     <input type="text" name="userId" placeholder="userId" th:value="${userId}"/>
                 </div>
                 <div class="field">
-                    <label>상태</label>
+                    <label>취소 여부</label>
                     <select name="status">
                         <option value="">전체</option>
-                        <option value="active"   th:selected="${status == 'active'}">적립</option>
                         <option value="cancelled" th:selected="${status == 'cancelled'}">취소</option>
                     </select>
                 </div>
@@ -115,17 +114,17 @@
                     <label>포인트 타입</label>
                     <select name="type">
                         <option value="">전체</option>
-                        <option value="FREE" th:selected="${type == 'FREE'}">FREE</option>
-                        <option value="PAID" th:selected="${type == 'PAID'}">PAID</option>
+                        <option value="FREE" th:selected="${type == 'FREE'}">무료</option>
+                        <option value="PAID" th:selected="${type == 'PAID'}">유료</option>
                     </select>
                 </div>
                 <div class="field">
                     <label>적립 출처</label>
                     <select name="sourceType">
                         <option value="">전체</option>
-                        <option value="ACCUMULATION"   th:selected="${sourceType == 'ACCUMULATION'}">ACCUMULATION</option>
-                        <option value="MANUAL"        th:selected="${sourceType == 'MANUAL'}">MANUAL</option>
-                        <option value="AUTO_RESTORED" th:selected="${sourceType == 'AUTO_RESTORED'}">AUTO_RESTORED</option>
+                        <option value="ACCUMULATION"   th:selected="${sourceType == 'ACCUMULATION'}">적립</option>
+                        <option value="MANUAL"        th:selected="${sourceType == 'MANUAL'}">수기지급</option>
+                        <option value="AUTO_RESTORED" th:selected="${sourceType == 'AUTO_RESTORED'}">만료후취소재적립</option>
                     </select>
                 </div>
                 <div class="field">
@@ -163,8 +162,8 @@
                 <th>만료일</th>
                 <th>만료여부</th>
                 <th class="num">만료금액</th>
-                <th>상태</th>
-                <th>originPointId</th>
+                <th>취소 여부</th>
+                <th>origin pointKey</th>
                 <th>재지급 pointKey</th>
                 <th>등록일시</th>
             </tr>
@@ -176,12 +175,12 @@
                 <td>
                     <span class="badge"
                           th:classappend="${p.type.name() == 'PAID'} ? 'badge-paid' : 'badge-free'"
-                          th:text="${p.type.name()}"></span>
+                          th:text="${p.type.description}"></span>
                 </td>
                 <td>
                     <span class="badge"
                           th:classappend="${p.pointSourceType.name() == 'MANUAL'} ? 'badge-manual' : (${p.pointSourceType.name() == 'AUTO_RESTORED'} ? 'badge-auto-restored' : 'badge-accumulation')"
-                          th:text="${p.pointSourceType.name()}"></span>
+                          th:text="${p.pointSourceType.description}"></span>
                 </td>
                 <td><code th:text="${p.orderNo != null ? p.orderNo : '-'}"></code></td>
                 <td class="num" th:text="${#numbers.formatInteger(p.accumulatedPoint, 1, 'COMMA')}"></td>
@@ -194,10 +193,16 @@
                 <td class="num" th:text="${p.expiredPoint != null ? #numbers.formatInteger(p.expiredPoint, 1, 'COMMA') : '-'}"></td>
                 <td>
                     <span th:if="${p.cancelled}"  class="status-cancelled">취소</span>
-                    <span th:if="${!p.cancelled}" class="status-active">적립</span>
+                    <span th:if="${!p.cancelled}" style="color:#aaa;font-size:0.8rem;">-</span>
                 </td>
-                <td><code th:text="${p.originPointId != null ? p.originPointId : '-'}"></code></td>
-                <td><code th:text="${restoredPointKeyMap[p.id] != null ? restoredPointKeyMap[p.id] : '-'}"></code></td>
+                <td>
+                    <a th:if="${p.originPointKey != null}" href="#" class="point-key-link" th:attr="data-key=${p.originPointKey}" style="color:#3b5bdb;text-decoration:none;font-family:monospace;font-size:0.8rem;" th:text="${p.originPointKey}"></a>
+                    <span th:if="${p.originPointKey == null}" style="color:#aaa;font-size:0.8rem;">-</span>
+                </td>
+                <td>
+                    <a th:if="${restoredPointKeyMap[p.id] != null}" href="#" class="point-key-link" th:attr="data-key=${restoredPointKeyMap[p.id]}" style="color:#3b5bdb;text-decoration:none;font-family:monospace;font-size:0.8rem;" th:text="${restoredPointKeyMap[p.id]}"></a>
+                    <span th:if="${restoredPointKeyMap[p.id] == null}" style="color:#aaa;font-size:0.8rem;">-</span>
+                </td>
                 <td th:text="${#temporals.format(p.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
             </tr>
             <tr th:if="${points == null or #lists.isEmpty(points)}">
@@ -222,12 +227,13 @@
 
 <script>
     const eventTypeLabel = {
-        ACCUMULATE: { label: 'ACCUMULATE', cls: 'badge-accumulate' },
-        USE:        { label: 'USE',        cls: 'badge-use' },
-        CANCEL:     { label: 'CANCEL',     cls: 'badge-cancel' },
-        EXPIRE:     { label: 'EXPIRE',     cls: 'badge-expire' },
-        AUTO_RESTORED: { label: 'AUTO_RESTORED', cls: 'badge-auto-restored-ev' },
-        USE_CANCEL:   { label: 'USE_CANCEL',   cls: 'badge-use-cancel' }
+        ACCUMULATE:              { label: '적립',           cls: 'badge-accumulate' },
+        USE:                     { label: '사용',           cls: 'badge-use' },
+        CANCEL:                  { label: '취소',           cls: 'badge-cancel' },
+        EXPIRE:                  { label: '만료',           cls: 'badge-expire' },
+        ACCUMULATE_CANCEL:       { label: '적립취소',        cls: 'badge-cancel' },
+        USE_CANCEL:              { label: '사용취소',        cls: 'badge-use-cancel' },
+        EXPIRED_CANCEL_RESTORE:  { label: '만료후취소재적립', cls: 'badge-auto-restored-ev' }
     };
 
     document.querySelectorAll('.point-key-link').forEach(link => {
@@ -261,28 +267,48 @@
         document.getElementById('eventModal').classList.remove('open');
     }
 
+    // 이벤트 타입별 금액 부호 (+/-)
+    const positiveTypes = new Set(['ACCUMULATE', 'USE_CANCEL', 'EXPIRED_CANCEL_RESTORE']);
+    const negativeTypes = new Set(['USE', 'CANCEL', 'EXPIRE', 'ACCUMULATE_CANCEL']);
+
     function renderModal(events) {
         if (!events || events.length === 0) {
             document.getElementById('modalContent').innerHTML = '<p class="modal-empty">이벤트 이력이 없습니다.</p>';
             return;
         }
-        let html = '<table><thead><tr><th>#</th><th>이벤트 타입</th><th style="text-align:right">금액</th><th>주문번호</th><th>취소 ID</th><th>발생일시</th></tr></thead><tbody>';
+        let sum = 0;
+        let html = '<table><thead><tr><th>#</th><th>이벤트 타입</th><th style="text-align:right">금액</th><th>주문번호</th><th>취소 ID</th><th style="text-align:right">취소 금액</th><th>발생일시</th></tr></thead><tbody>';
         events.forEach((ev, i) => {
             const t = eventTypeLabel[ev.pointEventType] || { label: ev.pointEventType, cls: '' };
-            const amt = Number(ev.amount).toLocaleString();
+            const raw = Number(ev.amount);
+            const isPositive = positiveTypes.has(ev.pointEventType);
+            const isNegative = negativeTypes.has(ev.pointEventType);
+            const signed = isPositive ? raw : isNegative ? -raw : raw;
+            sum += signed;
+            const sign = isPositive ? '+' : isNegative ? '-' : '';
+            const color = isPositive ? '#2f9e44' : isNegative ? '#e03131' : '#555';
+            const amtStr = sign + raw.toLocaleString();
             const orderNo = ev.orderNo || '-';
-            const cancelId = ev.orderCancelId || '-';
+            const cancelId = ev.orderCancelId != null ? ev.orderCancelId : '-';
+            const cancelAmt = ev.cancelAmount != null ? Number(ev.cancelAmount).toLocaleString() : '-';
             const dt = ev.regDateTime ? ev.regDateTime.replace('T', ' ').substring(0, 16) : '-';
             html += `<tr>
                 <td style="color:#999;font-size:0.75rem">${i + 1}</td>
                 <td><span class="badge ${t.cls}">${t.label}</span></td>
-                <td style="text-align:right;font-variant-numeric:tabular-nums">${amt}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums;color:${color};font-weight:600">${amtStr}</td>
                 <td><code>${orderNo}</code></td>
                 <td style="color:#999;font-size:0.78rem">${cancelId}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums;color:#e03131;font-size:0.82rem">${cancelAmt}</td>
                 <td style="color:#555;font-size:0.8rem">${dt}</td>
             </tr>`;
         });
-        html += '</tbody></table>';
+        const sumColor = sum >= 0 ? '#2f9e44' : '#e03131';
+        const sumSign = sum >= 0 ? '+' : '';
+        html += `</tbody><tfoot><tr style="background:#f4f6f9;font-weight:700">
+            <td colspan="2" style="padding:10px 12px;font-size:0.82rem;color:#555">잔여 합계</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums;color:${sumColor};font-size:0.9rem;padding:10px 12px">${sumSign}${sum.toLocaleString()}</td>
+            <td colspan="4"></td>
+        </tr></tfoot></table>`;
         document.getElementById('modalContent').innerHTML = html;
     }
 </script>

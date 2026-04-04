@@ -2,6 +2,7 @@ package org.musinsa.payments.point.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.musinsa.payments.point.domain.*;
 import org.musinsa.payments.point.repository.*;
 import org.musinsa.payments.point.service.PointService;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * 이미 데이터가 존재하면 삽입을 건너뛴다.
  */
 @Slf4j
+@Profile("!test")
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
@@ -22,11 +24,12 @@ public class DataInitializer implements ApplicationRunner {
     private final UserAccountRepository userAccountRepository;
     private final PointService pointService;
     private final PointRepository pointRepository;
+    private final PointEventRepository pointEventRepository;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (userAccountRepository.count() > 0) {
+        if (userAccountRepository.findByUserId("user1").isPresent()) {
             log.info("[DataInitializer] 이미 데이터가 존재합니다. 초기화를 건너뜁니다.");
             return;
         }
@@ -79,8 +82,16 @@ public class DataInitializer implements ApplicationRunner {
         // 만료 강제 처리
         pointRepository.findByPointKey(u2p2).ifPresent(p -> {
             p.setExpiryDateTime(java.time.LocalDateTime.now().minusDays(1));
+            long remaining = p.getRemainingPoint();
             p.expire();
             pointRepository.save(p);
+            if (remaining > 0) {
+                pointEventRepository.save(PointEvent.builder()
+                        .point(p)
+                        .pointEventType(PointEventType.EXPIRE)
+                        .amount(remaining)
+                        .build());
+            }
         });
         pointService.use("user2", "USE-U2-001", 8000L);
         pointService.cancelUsage("USE-U2-001", 5000L);    // 만료된 포인트 포함 취소 → AUTO_RESTORED 발생
@@ -110,6 +121,84 @@ public class DataInitializer implements ApplicationRunner {
         pointService.cancelUsage("USE-U5-001", 10000L);   // 2차 부분 취소
         pointService.cancelUsage("USE-U5-002", 10000L);   // 전액 취소
         log.info("[DataInitializer] user5 데이터 삽입 완료. pointKeys: {}, {}", u5p1, u5p2);
+
+        // ── user6: 만료 후 취소로 인한 재지급(AUTO_RESTORED) 케이스 ──
+        // user6 생성
+        userAccountRepository.save(UserAccount.builder()
+                .userId("user6").name("정재원")
+                .maxAccumulationPoint(100000L).maxRetentionPoint(1000000L)
+                .build());
+
+        // 1) 포인트 적립 (만료 기간 짧게)
+        String u6p1 = pointService.accumulate("user6", 8000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, "ORD-U6-001");
+        String u6p2 = pointService.accumulate("user6", 4000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, "ORD-U6-002");
+
+        // 2) 포인트 사용 (u6p1, u6p2 모두 소진)
+        pointService.use("user6", "USE-U6-001", 12000L);
+
+        // 3) u6p1, u6p2 강제 만료 처리 (사용 시점 이후 만료된 것으로 시뮬레이션)
+        pointRepository.findByPointKey(u6p1).ifPresent(p -> {
+            p.setExpiryDateTime(java.time.LocalDateTime.now().minusDays(1));
+            long remaining = p.getRemainingPoint();
+            p.expire();
+            pointRepository.save(p);
+            if (remaining > 0) {
+                pointEventRepository.save(PointEvent.builder()
+                        .point(p)
+                        .pointEventType(PointEventType.EXPIRE)
+                        .amount(remaining)
+                        .build());
+            }
+        });
+        pointRepository.findByPointKey(u6p2).ifPresent(p -> {
+            p.setExpiryDateTime(java.time.LocalDateTime.now().minusDays(1));
+            long remaining = p.getRemainingPoint();
+            p.expire();
+            pointRepository.save(p);
+            if (remaining > 0) {
+                pointEventRepository.save(PointEvent.builder()
+                        .point(p)
+                        .pointEventType(PointEventType.EXPIRE)
+                        .amount(remaining)
+                        .build());
+            }
+        });
+
+        // 4) 사용 취소 → 만료된 포인트이므로 AUTO_RESTORED로 신규 적립됨
+        pointService.cancelUsage("USE-U6-001", 12000L);
+        log.info("[DataInitializer] user6 데이터 삽입 완료 (AUTO_RESTORED 케이스). pointKeys: {}, {}", u6p1, u6p2);
+
+        // ── user7: 만료 시 잔액(expiredPoint) 존재 + 취소로 인한 AUTO_RESTORED 케이스 ──
+        // user7 생성
+        userAccountRepository.save(UserAccount.builder()
+                .userId("user7").name("강지훈")
+                .maxAccumulationPoint(100000L).maxRetentionPoint(1000000L)
+                .build());
+
+        // 1) 포인트 적립 (10,000)
+        String u7p1 = pointService.accumulate("user7", 10000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, "ORD-U7-001");
+
+        // 2) 일부만 사용 (6,000) → 잔액 4,000 남음
+        pointService.use("user7", "USE-U7-001", 6000L);
+
+        // 3) 강제 만료 처리 → remainingPoint(4,000)가 expiredPoint로 기록되고 잔액 0이 됨
+        pointRepository.findByPointKey(u7p1).ifPresent(p -> {
+            p.setExpiryDateTime(java.time.LocalDateTime.now().minusDays(1));
+            long remaining = p.getRemainingPoint(); // 4,000
+            p.expire(); // expiredPoint = 4,000, remainingPoint = 0, isExpired = true
+            pointRepository.save(p);
+            if (remaining > 0) {
+                pointEventRepository.save(PointEvent.builder()
+                        .point(p)
+                        .pointEventType(PointEventType.EXPIRE)
+                        .amount(remaining)
+                        .build());
+            }
+        });
+
+        // 4) 사용 취소 → 원본 포인트가 만료 상태이므로 AUTO_RESTORED로 신규 적립됨
+        pointService.cancelUsage("USE-U7-001", 6000L);
+        log.info("[DataInitializer] user7 데이터 삽입 완료 (만료 잔액 존재 + AUTO_RESTORED 케이스). pointKey: {}", u7p1);
 
         log.info("[DataInitializer] 더미 데이터 삽입 완료.");
     }

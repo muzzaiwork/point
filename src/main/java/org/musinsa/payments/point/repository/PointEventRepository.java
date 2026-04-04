@@ -23,6 +23,13 @@ public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
     List<PointEvent> findByOrderAndPointAndPointEventType(Order order, Point point, PointEventType pointEventType);
 
     /**
+     * 특정 주문에 연결된 EXPIRED_CANCEL_RESTORE 이벤트 중 originPointKey가 일치하는 것을 조회한다.
+     * 만료된 포인트에 대한 이미 취소된 금액 계산에 사용된다.
+     */
+    @Query("SELECT pe FROM PointEvent pe WHERE pe.order = :order AND pe.pointEventType = :eventType AND pe.point.originPointKey = :originPointKey")
+    List<PointEvent> findByOrderAndPointEventTypeAndOriginPointKey(@Param("order") Order order, @Param("eventType") PointEventType eventType, @Param("originPointKey") String originPointKey);
+
+    /**
      * 특정 포인트 건(pointKey)에 연결된 모든 이벤트 이력을 조회한다.
      */
     @Query("SELECT pe FROM PointEvent pe WHERE pe.point.pointKey = :pointKey ORDER BY pe.id ASC")
@@ -32,7 +39,7 @@ public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
      * 특정 사용자의 모든 포인트 이벤트 이력을 조회한다.
      * Point 또는 Order 중 하나를 통해 userId를 매칭한다.
      */
-    @Query("SELECT pe FROM PointEvent pe WHERE (pe.point IS NOT NULL AND pe.point.userId = :userId) OR (pe.order IS NOT NULL AND pe.order.userId = :userId) ORDER BY pe.id ASC")
+    @Query("SELECT pe FROM PointEvent pe LEFT JOIN pe.point p LEFT JOIN pe.order o WHERE p.userId = :userId OR o.userId = :userId ORDER BY pe.id ASC")
     List<PointEvent> findAllByUserId(@Param("userId") String userId);
 
     /**

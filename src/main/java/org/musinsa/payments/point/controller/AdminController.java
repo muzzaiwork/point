@@ -95,7 +95,7 @@ public class AdminController {
         // 각 포인트 id → 재지급된 포인트 key 매핑
         Map<Long, String> restoredPointKeyMap = new HashMap<>();
         for (Point p : points) {
-            pointRepository.findByOriginPointId(p.getId())
+            pointRepository.findByOriginPointKey(p.getPointKey())
                     .ifPresent(restored -> restoredPointKeyMap.put(p.getId(), restored.getPointKey()));
         }
 
@@ -158,6 +158,7 @@ public class AdminController {
             m.put("amount", e.getAmount());
             m.put("orderNo", e.getOrder() != null ? e.getOrder().getOrderNo() : null);
             m.put("orderCancelId", e.getOrderCancel() != null ? e.getOrderCancel().getId() : null);
+            m.put("cancelAmount", e.getOrderCancel() != null ? e.getOrderCancel().getCancelAmount() : null);
             m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
             return m;
         }).toList();

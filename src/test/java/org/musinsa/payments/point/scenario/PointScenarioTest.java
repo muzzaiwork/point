@@ -145,7 +145,7 @@ public class PointScenarioTest {
         System.out.println("---------|------------------|----------------|-----------|---------|------------|----------|--------|---------------");
         pointRepository.findAll().forEach(p -> 
             System.out.printf("%s | %d | %d | %b | %b | %s | %s | %s | %s\n", 
-                p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointId(), p.getRootPointId(), p.getExpiryDateTime()));
+                p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointKey(), p.getRootPointId(), p.getExpiryDateTime()));
 
         System.out.println("\n[ORDERS]");
         System.out.println("orderNo | userId | orderedPoint | canceledPoint | type | status");

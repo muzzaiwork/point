@@ -115,6 +115,10 @@ public class PointDto {
         private String pointKey;
         @Schema(description = "연관 주문 번호")
         private String orderNo;
+        @Schema(description = "취소 ID")
+        private Long orderCancelId;
+        @Schema(description = "취소 금액")
+        private Long cancelAmount;
         @Schema(description = "등록 일시")
         private String regDateTime;
     }

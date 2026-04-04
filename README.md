@@ -53,6 +53,10 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 ### 2.1 서비스 접속
 - **Swagger UI**: [🔗 http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **API Base URL**: `http://localhost:8080/points`
+- **Admin UI**: [🔗 http://localhost:8080/admin](http://localhost:8080/admin)
+  - 사용자별 포인트 이력: `/admin/user-history?userId={userId}`
+  - 포인트 건별 이력: `/admin/point-history?pointKey={pointKey}`
+  - 일별 집계 (정산용): `/admin/daily?startDate={yyyy-MM-dd}&endDate={yyyy-MM-dd}`
 
 ### 2.2 데이터베이스 접속 (H2 Console)
 애플리케이션 실행 후 웹 브라우저에서 아래 정보로 데이터베이스에 접속할 수 있습니다.
@@ -214,7 +218,7 @@ sequenceDiagram
 
 **POINT**
 
-| id | pointKey | userId | accumulatedPoint | remainingPoint | pointType | pointSourceType | isCancelled | expiredAt | rootPointId | originPointId |
+| id | pointKey | userId | accumulatedPoint | remainingPoint | pointType | pointSourceType | isCancelled | expiredAt | rootPointId | originPointKey |
 |----|----------|--------|-----------------|----------------|-----------|-----------------|-------------|-----------|-------------|---------------|
 | 1 | 20260403000001 | user1 | 1000 | 1000 | FREE | ACCUMULATION | false | 2027-04-03 | 1 | null |
 
@@ -566,7 +570,7 @@ sequenceDiagram
             Service->>DB: PointEvent(USE_CANCEL) 저장
         else 만료된 적립 건
             Service->>UserEntity: cancelUsage(canCancelFromThis, type)
-            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointId/rootPointId 상속, 만료일=2999-12-31)
+            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointKey/rootPointId 상속, 만료일=2999-12-31)
             Service->>DB: PointEvent(ACCUMULATE) 저장
         end
     end
@@ -659,7 +663,7 @@ sequenceDiagram
 
 **POINT** (신규 생성 — 원본 복구 불가)
 
-| id | pointKey | remainingPoint | sourceType | originPointId | rootPointId | expiryDate |
+| id | pointKey | remainingPoint | sourceType | originPointKey | rootPointId | expiryDate |
 |----|----------|----------------|------------|---------------|-------------|------------|
 | 5 | 20260403000005 | 300 | AUTO_RESTORED | 1 | 1 | 2999-12-31 |
 

@@ -53,7 +53,7 @@ public class PointService {
         // 2. 사용자 엔티티에서 잔액 및 한도 체크 후 적립
         user.accumulatePoint(amount, type);
 
-        return doAccumulate(userId, amount, pointSourceType, type, expiryDate, orderNo, null, null);
+        return doAccumulate(userId, amount, pointSourceType, type, expiryDate, orderNo, (String) null, null, null);
     }
 
     /**
@@ -61,7 +61,7 @@ public class PointService {
      * 외부 적립(accumulate)과 만료 후 취소 재적립 모두 이 메서드를 통해 처리한다.
      */
     private String doAccumulate(String userId, Long amount, PointSourceType pointSourceType, PointType type,
-                                 LocalDateTime expiryDate, String orderNo, Long originPointId, Long rootPointId) {
+                                 LocalDateTime expiryDate, String orderNo, String originPointKey, Long rootPointId, OrderCancel orderCancel) {
         Point point = Point.builder()
                 .userId(userId)
                 .pointKey(generatePointKey())
@@ -70,7 +70,7 @@ public class PointService {
                 .remainingPoint(amount)
                 .type(type)
                 .pointSourceType(pointSourceType)
-                .originPointId(originPointId)
+                .originPointKey(originPointKey)
                 .rootPointId(rootPointId)
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
@@ -79,10 +79,12 @@ public class PointService {
 
         pointRepository.save(point);
 
+        PointEventType eventType = (pointSourceType == PointSourceType.AUTO_RESTORED) ? PointEventType.EXPIRED_CANCEL_RESTORE : PointEventType.ACCUMULATE;
         PointEvent pointEvent = PointEvent.builder()
                 .point(point)
-                .pointEventType(PointEventType.ACCUMULATE)
+                .pointEventType(eventType)
                 .amount(amount)
+                .orderCancel(orderCancel)
                 .build();
 
         pointEventRepository.save(pointEvent);
@@ -231,27 +233,28 @@ public class PointService {
             Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
                 // 4-1. 만료된 적립 건: 원본 복구 불가 → AUTO_RESTORED 타입으로 신규 적립
-                //      만료일은 2999-12-31로 설정, originPointId/rootPointId 상속
+                //      만료일은 2999-12-31로 설정, originPointKey/rootPointId 상속
                 //      accumulatePoint() 대신 cancelUsage()로 잔액 복구 (1회 적립 한도 우회)
+                //      신규 적립(EXPIRED_CANCEL_RESTORE)으로 처리되므로 USE_CANCEL 이벤트는 기록하지 않음
                 user.cancelUsage(canCancelFromThis, acc.getType());
                 doAccumulate(order.getUserId(), canCancelFromThis, PointSourceType.AUTO_RESTORED, acc.getType(),
-                        LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getId(), acc.getRootPointId());
+                        LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getPointKey(), acc.getRootPointId(), orderCancel);
             } else {
                 // 4-2. 유효한 적립 건: 기존 포인트 잔액 복구
                 acc.restore(canCancelFromThis);
                 pointRepository.save(acc);
                 user.cancelUsage(canCancelFromThis, acc.getType());
-            }
 
-            // 5. USE_CANCEL 이벤트 기록
-            PointEvent cancelDetail = PointEvent.builder()
-                    .order(order)
-                    .point(acc)
-                    .pointEventType(PointEventType.USE_CANCEL)
-                    .amount(canCancelFromThis)
-                    .orderCancel(orderCancel)
-                    .build();
-            pointEventRepository.save(cancelDetail);
+                // 5. USE_CANCEL 이벤트 기록 (만료된 경우는 AUTO_RESTORED로 신규 적립되므로 제외)
+                PointEvent cancelDetail = PointEvent.builder()
+                        .order(order)
+                        .point(acc)
+                        .pointEventType(PointEventType.USE_CANCEL)
+                        .amount(canCancelFromThis)
+                        .orderCancel(orderCancel)
+                        .build();
+                pointEventRepository.save(cancelDetail);
+            }
 
             remainingToCancel -= canCancelFromThis;
         }
@@ -302,15 +305,25 @@ public class PointService {
                 .amount(pe.getAmount())
                 .pointKey(pe.getPoint() != null ? pe.getPoint().getPointKey() : null)
                 .orderNo(pe.getOrder() != null ? pe.getOrder().getOrderNo() : null)
+                .orderCancelId(pe.getOrderCancel() != null ? pe.getOrderCancel().getId() : null)
+                .cancelAmount(pe.getOrderCancel() != null ? pe.getOrderCancel().getCancelAmount() : null)
                 .regDateTime(pe.getRegDateTime() != null ? pe.getRegDateTime().toString() : null)
                 .build();
     }
 
     private long getAlreadyCanceledAmount(PointEvent useDetail) {
-        return pointEventRepository.findByOrderAndPointAndPointEventType(useDetail.getOrder(), useDetail.getPoint(), PointEventType.USE_CANCEL)
-                .stream()
-                .mapToLong(PointEvent::getAmount)
-                .sum();
+        // 유효한 포인트: USE_CANCEL 이벤트로 추적
+        long useCancelAmount = pointEventRepository.findByOrderAndPointAndPointEventType(
+                        useDetail.getOrder(), useDetail.getPoint(), PointEventType.USE_CANCEL)
+                .stream().mapToLong(PointEvent::getAmount).sum();
+
+        // 만료된 포인트: EXPIRED_CANCEL_RESTORE 이벤트는 신규 Point에 originPointKey로 연결됨
+        long expiredCancelAmount = pointEventRepository.findByOrderAndPointEventTypeAndOriginPointKey(
+                        useDetail.getOrder(), PointEventType.EXPIRED_CANCEL_RESTORE,
+                        useDetail.getPoint().getPointKey())
+                .stream().mapToLong(PointEvent::getAmount).sum();
+
+        return useCancelAmount + expiredCancelAmount;
     }
 
     /**

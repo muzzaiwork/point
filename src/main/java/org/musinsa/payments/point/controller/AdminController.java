@@ -4,10 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.domain.Order;
 import org.musinsa.payments.point.domain.OrderType;
 import org.musinsa.payments.point.domain.Point;
+import org.musinsa.payments.point.domain.PointEvent;
 import org.musinsa.payments.point.domain.PointSourceType;
 import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.domain.UserAccount;
 import org.musinsa.payments.point.repository.OrderRepository;
+import org.musinsa.payments.point.repository.PointEventRepository;
 import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.UserAccountRepository;
 import org.springframework.stereotype.Controller;
@@ -28,6 +30,7 @@ public class AdminController {
     private final UserAccountRepository userAccountRepository;
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
+    private final PointEventRepository pointEventRepository;
 
     @GetMapping
     public String index() {
@@ -125,5 +128,19 @@ public class AdminController {
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
         return "admin/orders";
+    }
+
+    @GetMapping("/point-events")
+    public String pointEvents(
+            @RequestParam(required = false) String pointKey,
+            Model model) {
+
+        List<PointEvent> events = (pointKey != null && !pointKey.isBlank())
+                ? pointEventRepository.findAllByPointKey(pointKey)
+                : List.of();
+
+        model.addAttribute("events", events);
+        model.addAttribute("pointKey", pointKey);
+        return "admin/point-events";
     }
 }

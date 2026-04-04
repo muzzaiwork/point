@@ -47,7 +47,8 @@
         .badge-free { background: #e7f5ff; color: #1971c2; }
         .badge-paid { background: #fff3bf; color: #e67700; }
         .badge-manual { background: #f3f0ff; color: #6741d9; }
-        .badge-order { background: #ebfbee; color: #2f9e44; }
+        .badge-accumulation { background: #ebfbee; color: #2f9e44; }
+        .badge-auto-restored { background: #fff0f6; color: #c2255c; }
 
         /* 상태 */
         .status-cancelled { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 700; background: #fff0f0; color: #e03131; }
@@ -98,8 +99,9 @@
                     <label>적립 출처</label>
                     <select name="sourceType">
                         <option value="">전체</option>
-                        <option value="ORDER"  th:selected="${sourceType == 'ORDER'}">ORDER</option>
-                        <option value="MANUAL" th:selected="${sourceType == 'MANUAL'}">MANUAL</option>
+                        <option value="ACCUMULATION"   th:selected="${sourceType == 'ACCUMULATION'}">ACCUMULATION</option>
+                        <option value="MANUAL"        th:selected="${sourceType == 'MANUAL'}">MANUAL</option>
+                        <option value="AUTO_RESTORED" th:selected="${sourceType == 'AUTO_RESTORED'}">AUTO_RESTORED</option>
                     </select>
                 </div>
                 <div class="field">
@@ -141,7 +143,7 @@
         </thead>
         <tbody>
             <tr th:each="p : ${points}">
-                <td><code th:text="${p.pointKey}"></code></td>
+                <td><a th:href="@{/admin/point-events(pointKey=${p.pointKey})}" style="color:#3b5bdb;text-decoration:none;font-family:monospace;font-size:0.8rem;" th:text="${p.pointKey}"></a></td>
                 <td th:text="${p.userId}"></td>
                 <td>
                     <span class="badge"
@@ -150,7 +152,7 @@
                 </td>
                 <td>
                     <span class="badge"
-                          th:classappend="${p.pointSourceType.name() == 'MANUAL'} ? 'badge-manual' : 'badge-order'"
+                          th:classappend="${p.pointSourceType.name() == 'MANUAL'} ? 'badge-manual' : (${p.pointSourceType.name() == 'AUTO_RESTORED'} ? 'badge-auto-restored' : 'badge-accumulation')"
                           th:text="${p.pointSourceType.name()}"></span>
                 </td>
                 <td><code th:text="${p.orderNo != null ? p.orderNo : '-'}"></code></td>

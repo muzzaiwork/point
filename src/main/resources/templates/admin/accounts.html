@@ -10,18 +10,42 @@
         header h1 { font-size: 1.2rem; font-weight: 600; }
         nav a { color: #aac4ff; text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border-radius: 4px; }
         nav a:hover, nav a.active { background: #16213e; color: #fff; }
-        .container { max-width: 1200px; margin: 32px auto; padding: 0 24px; }
-        h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; color: #1a1a2e; }
+        .container { max-width: 1300px; margin: 32px auto; padding: 0 24px; }
+        .page-title { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+
+        /* 검색 폼 */
+        .search-card { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .search-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+        .field input, .field select {
+            width: 100%; padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px;
+            font-size: 0.85rem; background: #fafafa; color: #333;
+        }
+        .field input:focus, .field select:focus { outline: none; border-color: #3b5bdb; background: #fff; }
+        .btn-row { display: flex; gap: 8px; align-items: flex-end; }
+        .btn { padding: 7px 18px; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: 500; }
+        .btn-primary { background: #3b5bdb; color: #fff; }
+        .btn-primary:hover { background: #1c3faa; }
+        .btn-reset { background: #e9ecef; color: #495057; text-decoration: none; display: inline-block; }
+        .btn-reset:hover { background: #dee2e6; }
+
+        /* 결과 요약 */
+        .result-summary { font-size: 0.85rem; color: #666; margin-bottom: 10px; }
+        .result-summary strong { color: #1a1a2e; }
+
+        /* 테이블 */
         table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
         thead { background: #1a1a2e; color: #fff; }
-        th { padding: 12px 16px; text-align: left; font-size: 0.82rem; font-weight: 500; }
+        th { padding: 12px 16px; text-align: left; font-size: 0.82rem; font-weight: 500; white-space: nowrap; }
         td { padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid #f0f0f0; }
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: #f8f9ff; }
         .point-link { color: #3b5bdb; font-weight: 600; cursor: pointer; text-decoration: underline; }
         .point-link:hover { color: #1c3faa; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .use-link { color: #e67700; font-weight: 600; cursor: pointer; text-decoration: underline; }
+        .use-link:hover { color: #b35900; }
         .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .empty { text-align: center; color: #999; padding: 32px; }
     </style>
 </head>
 <body>
@@ -30,10 +54,37 @@
     <nav>
         <a href="/admin/accounts" class="active">사용자 계정</a>
         <a href="/admin/points">포인트 적립 내역</a>
+        <a href="/admin/orders">포인트 사용 내역</a>
     </nav>
 </header>
 <div class="container">
-    <h2>사용자 계정 목록</h2>
+    <div class="page-title">사용자 계정 목록</div>
+
+    <!-- 검색 폼 -->
+    <div class="search-card">
+        <form method="get" action="/admin/accounts">
+            <div class="search-grid">
+                <div class="field">
+                    <label>사용자 ID</label>
+                    <input type="text" name="userId" placeholder="userId" th:value="${userId}"/>
+                </div>
+                <div class="field">
+                    <label>이름</label>
+                    <input type="text" name="name" placeholder="이름" th:value="${name}"/>
+                </div>
+                <div class="field btn-row">
+                    <button type="submit" class="btn btn-primary">조회</button>
+                    <a href="/admin/accounts" class="btn btn-reset">초기화</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 결과 요약 -->
+    <div class="result-summary">
+        총 <strong th:text="${#lists.size(accounts)}">0</strong>건
+    </div>
+
     <table>
         <thead>
             <tr>
@@ -60,7 +111,7 @@
                     </span>
                 </td>
                 <td class="num">
-                    <span th:text="${#numbers.formatInteger(a.usedPoint, 1, 'COMMA')}"></span>
+                    <a class="use-link" th:href="@{/admin/orders(userId=${a.userId})}" th:text="${#numbers.formatInteger(a.usedPoint, 1, 'COMMA')}"></a>
                     <span style="color:#888; font-size:0.78rem;">
                         (<span th:text="${#numbers.formatInteger(a.usedPaidPoint, 1, 'COMMA')}"></span>
                         / <span th:text="${#numbers.formatInteger(a.usedFreePoint, 1, 'COMMA')}"></span>)
@@ -77,7 +128,7 @@
                 <td class="num" th:text="${#numbers.formatInteger(a.maxRetentionPoint, 1, 'COMMA')}"></td>
             </tr>
             <tr th:if="${#lists.isEmpty(accounts)}">
-                <td colspan="8" style="text-align:center; color:#999; padding:32px;">데이터가 없습니다.</td>
+                <td colspan="8" class="empty">데이터가 없습니다.</td>
             </tr>
         </tbody>
     </table>

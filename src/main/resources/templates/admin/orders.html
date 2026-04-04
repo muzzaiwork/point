@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Admin - 포인트 적립 내역</title>
+    <title>Admin - 포인트 사용 내역</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #333; }
@@ -10,7 +10,7 @@
         header h1 { font-size: 1.2rem; font-weight: 600; }
         nav a { color: #aac4ff; text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border-radius: 4px; }
         nav a:hover, nav a.active { background: #16213e; color: #fff; }
-        .container { max-width: 1400px; margin: 32px auto; padding: 0 24px; }
+        .container { max-width: 1300px; margin: 32px auto; padding: 0 24px; }
         .page-title { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
 
         /* 검색 폼 */
@@ -26,7 +26,7 @@
         .btn { padding: 7px 18px; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: 500; }
         .btn-primary { background: #3b5bdb; color: #fff; }
         .btn-primary:hover { background: #1c3faa; }
-        .btn-reset { background: #e9ecef; color: #495057; }
+        .btn-reset { background: #e9ecef; color: #495057; text-decoration: none; display: inline-block; }
         .btn-reset:hover { background: #dee2e6; }
 
         /* 결과 요약 */
@@ -43,15 +43,13 @@
         .num { text-align: right; font-variant-numeric: tabular-nums; }
 
         /* 뱃지 */
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.74rem; font-weight: 600; }
-        .badge-free { background: #e7f5ff; color: #1971c2; }
-        .badge-paid { background: #fff3bf; color: #e67700; }
-        .badge-manual { background: #f3f0ff; color: #6741d9; }
-        .badge-order { background: #ebfbee; color: #2f9e44; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 700; }
+        .badge-purchase      { background: #ebfbee; color: #2f9e44; }
+        .badge-partial       { background: #fff3bf; color: #e67700; }
+        .badge-total-cancel  { background: #fff0f0; color: #e03131; }
 
-        /* 상태 */
-        .status-cancelled { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 700; background: #fff0f0; color: #e03131; }
-        .status-active    { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 700; background: #ebfbee; color: #2f9e44; }
+        .status-progress  { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 700; background: #e7f5ff; color: #1971c2; }
+        .status-confirmed { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.74rem; font-weight: 700; background: #f3f0ff; color: #6741d9; }
 
         .empty { text-align: center; color: #999; padding: 48px; }
         code { font-family: monospace; font-size: 0.8rem; color: #555; }
@@ -62,109 +60,92 @@
     <h1>🛠 Point Admin</h1>
     <nav>
         <a href="/admin/accounts">사용자 계정</a>
-        <a href="/admin/points" class="active">포인트 적립 내역</a>
-        <a href="/admin/orders">포인트 사용 내역</a>
+        <a href="/admin/points">포인트 적립 내역</a>
+        <a href="/admin/orders" class="active">포인트 사용 내역</a>
     </nav>
 </header>
 
 <div class="container">
-    <div class="page-title">포인트 적립 내역</div>
+    <div class="page-title">포인트 사용 내역</div>
 
     <!-- 검색 폼 -->
     <div class="search-card">
-        <form method="get" action="/admin/points">
+        <form method="get" action="/admin/orders">
             <div class="search-grid">
                 <div class="field">
                     <label>사용자 ID</label>
                     <input type="text" name="userId" placeholder="userId" th:value="${userId}"/>
                 </div>
                 <div class="field">
-                    <label>상태</label>
-                    <select name="status">
-                        <option value="">전체</option>
-                        <option value="active"   th:selected="${status == 'active'}">적립</option>
-                        <option value="cancelled" th:selected="${status == 'cancelled'}">취소</option>
-                    </select>
+                    <label>주문 번호</label>
+                    <input type="text" name="orderNo" placeholder="orderNo" th:value="${orderNo}"/>
                 </div>
                 <div class="field">
-                    <label>포인트 타입</label>
+                    <label>취소 유형</label>
                     <select name="type">
                         <option value="">전체</option>
-                        <option value="FREE" th:selected="${type == 'FREE'}">FREE</option>
-                        <option value="PAID" th:selected="${type == 'PAID'}">PAID</option>
+                        <option value="PURCHASE"      th:selected="${type == 'PURCHASE'}">구매</option>
+                        <option value="PARTIAL_CANCEL" th:selected="${type == 'PARTIAL_CANCEL'}">부분 취소</option>
+                        <option value="TOTAL_CANCEL"  th:selected="${type == 'TOTAL_CANCEL'}">전액 취소</option>
                     </select>
                 </div>
                 <div class="field">
-                    <label>적립 출처</label>
-                    <select name="sourceType">
-                        <option value="">전체</option>
-                        <option value="ORDER"  th:selected="${sourceType == 'ORDER'}">ORDER</option>
-                        <option value="MANUAL" th:selected="${sourceType == 'MANUAL'}">MANUAL</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label>만료일 시작</label>
+                    <label>사용일 시작</label>
                     <input type="date" name="startDate" th:value="${startDate}"/>
                 </div>
                 <div class="field">
-                    <label>만료일 종료</label>
+                    <label>사용일 종료</label>
                     <input type="date" name="endDate" th:value="${endDate}"/>
                 </div>
                 <div class="field btn-row">
                     <button type="submit" class="btn btn-primary">조회</button>
-                    <a href="/admin/points" class="btn btn-reset">초기화</a>
+                    <a href="/admin/orders" class="btn btn-reset">초기화</a>
                 </div>
             </div>
         </form>
     </div>
 
     <!-- 결과 요약 -->
-    <div class="result-summary" th:if="${points != null}">
-        총 <strong th:text="${#lists.size(points)}">0</strong>건
+    <div class="result-summary">
+        총 <strong th:text="${#lists.size(orders)}">0</strong>건
     </div>
 
     <!-- 테이블 -->
     <table>
         <thead>
             <tr>
-                <th>pointKey</th>
+                <th>ID</th>
                 <th>사용자 ID</th>
-                <th>타입</th>
-                <th>출처</th>
-                <th>orderNo</th>
-                <th class="num">적립 금액</th>
-                <th class="num">잔여 금액</th>
-                <th>만료일</th>
-                <th>상태</th>
-                <th>등록일시</th>
+                <th>주문 번호</th>
+                <th class="num">사용 포인트</th>
+                <th class="num">취소 포인트</th>
+                <th class="num">잔여 사용</th>
+                <th>취소 유형</th>
+                <th>진행 상태</th>
+                <th>사용일시</th>
             </tr>
         </thead>
         <tbody>
-            <tr th:each="p : ${points}">
-                <td><code th:text="${p.pointKey}"></code></td>
-                <td th:text="${p.userId}"></td>
+            <tr th:each="o : ${orders}">
+                <td th:text="${o.id}"></td>
+                <td th:text="${o.userId}"></td>
+                <td><code th:text="${o.orderNo}"></code></td>
+                <td class="num" th:text="${#numbers.formatInteger(o.orderedPoint, 1, 'COMMA')}"></td>
+                <td class="num" th:text="${#numbers.formatInteger(o.canceledPoint, 1, 'COMMA')}"></td>
+                <td class="num" th:text="${#numbers.formatInteger(o.orderedPoint - o.canceledPoint, 1, 'COMMA')}"></td>
                 <td>
                     <span class="badge"
-                          th:classappend="${p.type.name() == 'PAID'} ? 'badge-paid' : 'badge-free'"
-                          th:text="${p.type.name()}"></span>
+                          th:classappend="${o.type.name() == 'PURCHASE'} ? 'badge-purchase' : (${o.type.name() == 'PARTIAL_CANCEL'} ? 'badge-partial' : 'badge-total-cancel')"
+                          th:text="${o.type.name() == 'PURCHASE'} ? '구매' : (${o.type.name() == 'PARTIAL_CANCEL'} ? '부분 취소' : '전액 취소')"></span>
                 </td>
                 <td>
-                    <span class="badge"
-                          th:classappend="${p.pointSourceType.name() == 'MANUAL'} ? 'badge-manual' : 'badge-order'"
-                          th:text="${p.pointSourceType.name()}"></span>
+                    <span th:if="${o.status.name() == 'IN_PROGRESS'}" class="status-progress">진행중</span>
+                    <span th:if="${o.status.name() == 'CONFIRMED'}"   class="status-confirmed">확정</span>
                 </td>
-                <td><code th:text="${p.orderNo != null ? p.orderNo : '-'}"></code></td>
-                <td class="num" th:text="${#numbers.formatInteger(p.accumulatedPoint, 1, 'COMMA')}"></td>
-                <td class="num" th:text="${#numbers.formatInteger(p.remainingPoint, 1, 'COMMA')}"></td>
-                <td th:text="${#temporals.format(p.expiryDate, 'yyyy-MM-dd')}"></td>
-                <td>
-                    <span th:if="${p.cancelled}"  class="status-cancelled">취소</span>
-                    <span th:if="${!p.cancelled}" class="status-active">적립</span>
-                </td>
-                <td th:text="${#temporals.format(p.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
+                <td th:text="${#temporals.format(o.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
             </tr>
-            <tr th:if="${points == null or #lists.isEmpty(points)}">
-                <td colspan="10" class="empty">조회된 내역이 없습니다.</td>
+            <tr th:if="${orders == null or #lists.isEmpty(orders)}">
+                <td colspan="9" class="empty">조회된 내역이 없습니다.</td>
             </tr>
         </tbody>
     </table>

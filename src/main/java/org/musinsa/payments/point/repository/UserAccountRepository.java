@@ -3,7 +3,10 @@ package org.musinsa.payments.point.repository;
 import org.musinsa.payments.point.domain.UserAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
@@ -12,4 +15,12 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @org.springframework.data.jpa.repository.Query("select u from UserAccount u where u.userId = :userId")
     Optional<UserAccount> findByUserIdWithLock(String userId);
+
+    @Query("""
+        SELECT u FROM UserAccount u
+        WHERE (:userId IS NULL OR u.userId = :userId)
+          AND (:name IS NULL OR u.name LIKE %:name%)
+        ORDER BY u.id ASC
+    """)
+    List<UserAccount> searchAccounts(@Param("userId") String userId, @Param("name") String name);
 }

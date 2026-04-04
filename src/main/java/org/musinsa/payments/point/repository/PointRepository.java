@@ -28,6 +28,8 @@ public interface PointRepository extends JpaRepository<Point, Long> {
 
     List<Point> findByOriginPointKey(String originPointKey);
 
+    List<Point> findByRootPointKey(String rootPointKey);
+
     @Query("SELECT p FROM Point p WHERE " +
            "(:userId IS NULL OR p.userId = :userId) AND " +
            "(:cancelled IS NULL OR p.isCancelled = :cancelled) AND " +

@@ -81,6 +81,10 @@
         .badge-expire      { background: #f3f0ff; color: #6741d9; }
         .badge-auto-restored-ev { background: #fff0f6; color: #c2255c; }
 
+        /* rootPointKey 링크 */
+        .root-key-link { color: #e67700; text-decoration: none; font-family: monospace; font-size: 0.8rem; font-weight: 600; }
+        .root-key-link:hover { text-decoration: underline; }
+
         /* 페이지네이션 */
         .pagination { display: flex; justify-content: center; gap: 4px; margin-top: 20px; }
         .pagination a, .pagination span {
@@ -174,6 +178,7 @@
                 <th class="num">사용 금액</th>
                 <th class="num">사용취소 금액</th>
                 <th class="num">만료금액</th>
+                <th>rootPointKey</th>
                 <th>원천 pointKey</th>
                 <th>재지급 pointKey</th>
                 <th>만료일</th>
@@ -208,6 +213,10 @@
                 <td class="num" th:text="${p.usedCancelPoint != null ? #numbers.formatInteger(p.usedCancelPoint, 1, 'COMMA') : '-'}"></td>
                 <td class="num" th:text="${p.expiredPoint != null ? #numbers.formatInteger(p.expiredPoint, 1, 'COMMA') : '-'}"></td>
                 <td>
+                    <a th:if="${p.rootPointKey != null and p.rootPointKey != p.pointKey}" href="#" class="root-key-link" th:attr="data-root-key=${p.rootPointKey}" th:text="${p.rootPointKey}"></a>
+                    <span th:if="${p.rootPointKey == null or p.rootPointKey == p.pointKey}" style="color:#aaa;font-size:0.8rem;">-</span>
+                </td>
+                <td>
                     <a th:if="${p.originPointKey != null}" href="#" class="point-key-link" th:attr="data-key=${p.originPointKey}" style="color:#3b5bdb;text-decoration:none;font-family:monospace;font-size:0.8rem;" th:text="${p.originPointKey}"></a>
                     <span th:if="${p.originPointKey == null}" style="color:#aaa;font-size:0.8rem;">-</span>
                 </td>
@@ -219,7 +228,7 @@
                 <td th:text="${#temporals.format(p.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
             </tr>
             <tr th:if="${points == null or points.isEmpty()}">
-                <td colspan="15" class="empty">조회된 내역이 없습니다.</td>
+                <td colspan="16" class="empty">조회된 내역이 없습니다.</td>
             </tr>
         </tbody>
     </table>
@@ -256,6 +265,19 @@
     </div>
 </div>
 
+<!-- rootPointKey 연관 포인트 모달 -->
+<div class="modal-overlay" id="rootKeyModal">
+    <div class="modal" style="max-width:1000px">
+        <div class="modal-header">
+            <h2>연관 포인트 내역 <span class="modal-key" id="rootKeyModalTitle"></span></h2>
+            <button class="modal-close" id="rootKeyModalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="rootKeyModalContent"><p class="modal-empty">로딩 중...</p></div>
+        </div>
+    </div>
+</div>
+
 <script>
     const eventTypeLabel = {
         ACCUMULATE:              { label: '적립',           cls: 'badge-accumulate' },
@@ -275,11 +297,23 @@
         });
     });
 
+    document.querySelectorAll('.root-key-link').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            const rootPointKey = link.dataset.rootKey;
+            openRootKeyModal(rootPointKey);
+        });
+    });
+
     document.getElementById('modalClose').addEventListener('click', closeModal);
     document.getElementById('eventModal').addEventListener('click', e => {
         if (e.target === document.getElementById('eventModal')) closeModal();
     });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    document.getElementById('rootKeyModalClose').addEventListener('click', closeRootKeyModal);
+    document.getElementById('rootKeyModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('rootKeyModal')) closeRootKeyModal();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeRootKeyModal(); } });
 
     function openModal(pointKey) {
         document.getElementById('modalPointKey').textContent = pointKey;
@@ -296,6 +330,65 @@
 
     function closeModal() {
         document.getElementById('eventModal').classList.remove('open');
+    }
+
+    function openRootKeyModal(rootPointKey) {
+        document.getElementById('rootKeyModalTitle').textContent = rootPointKey;
+        document.getElementById('rootKeyModalContent').innerHTML = '<p class="modal-empty">로딩 중...</p>';
+        document.getElementById('rootKeyModal').classList.add('open');
+
+        fetch('/admin/points-by-root-key?rootPointKey=' + encodeURIComponent(rootPointKey))
+            .then(r => r.json())
+            .then(data => renderRootKeyModal(data))
+            .catch(() => {
+                document.getElementById('rootKeyModalContent').innerHTML = '<p class="modal-empty">데이터를 불러오지 못했습니다.</p>';
+            });
+    }
+
+    function closeRootKeyModal() {
+        document.getElementById('rootKeyModal').classList.remove('open');
+    }
+
+    function renderRootKeyModal(points) {
+        if (!points || points.length === 0) {
+            document.getElementById('rootKeyModalContent').innerHTML = '<p class="modal-empty">연관 포인트가 없습니다.</p>';
+            return;
+        }
+        const sourceLabel = { ACCUMULATION: '적립', MANUAL: '수기지급', AUTO_RESTORED: '만료후취소재적립' };
+        const typeLabel = { FREE: '무료', PAID: '유료' };
+        let html = '<table><thead><tr><th>pointKey</th><th>타입</th><th>출처</th><th>상태</th><th style="text-align:right">적립금액</th><th style="text-align:right">잔여금액</th><th style="text-align:right">사용금액</th><th style="text-align:right">만료금액</th><th>원천 pointKey</th><th>만료일</th><th>적립일시</th></tr></thead><tbody>';
+        points.forEach(p => {
+            const status = p.isCancelled ? '<span class="status-cancelled">취소</span>' : p.isExpired ? '<span class="status-cancelled">만료</span>' : '<span class="status-active">정상</span>';
+            const src = p.pointSourceType;
+            const srcCls = src === 'MANUAL' ? 'badge-manual' : src === 'AUTO_RESTORED' ? 'badge-auto-restored' : 'badge-accumulation';
+            const typCls = p.type === 'PAID' ? 'badge-paid' : 'badge-free';
+            const originKey = p.originPointKey ? `<code style="font-size:0.78rem">${p.originPointKey}</code>` : '-';
+            const expiry = p.expiryDate || '-';
+            const reg = p.regDateTime ? p.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+            html += `<tr>
+                <td><a href="#" class="point-key-link" data-key="${p.pointKey}" style="color:#3b5bdb;text-decoration:none;font-family:monospace;font-size:0.8rem">${p.pointKey}</a></td>
+                <td><span class="badge ${typCls}">${typeLabel[p.type] || p.type}</span></td>
+                <td><span class="badge ${srcCls}">${sourceLabel[src] || src}</span></td>
+                <td>${status}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums">${Number(p.accumulatedPoint).toLocaleString()}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums">${Number(p.remainingPoint).toLocaleString()}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums;color:#555">${p.usedPoint != null ? Number(p.usedPoint).toLocaleString() : '-'}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums;color:#6741d9">${p.expiredPoint != null ? Number(p.expiredPoint).toLocaleString() : '-'}</td>
+                <td>${originKey}</td>
+                <td style="font-size:0.8rem;color:#555">${expiry}</td>
+                <td style="font-size:0.8rem;color:#555">${reg}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('rootKeyModalContent').innerHTML = html;
+
+        // 모달 내 point-key-link 클릭 이벤트 재등록
+        document.querySelectorAll('#rootKeyModalContent .point-key-link').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                openModal(link.dataset.key);
+            });
+        });
     }
 
     // 이벤트 타입별 금액 부호 (+/-)

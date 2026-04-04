@@ -113,8 +113,7 @@ public class AdminController {
         for (Point p : points) {
             List<Point> restoredList = pointRepository.findByOriginPointKey(p.getPointKey());
             if (!restoredList.isEmpty()) {
-                restoredPointKeyMap.put(p.getId(), restoredList.stream()
-                        .map(Point::getPointKey).collect(java.util.stream.Collectors.joining(", ")));
+                restoredPointKeyMap.put(p.getId(), restoredList.get(0).getPointKey());
             }
         }
 
@@ -275,6 +274,37 @@ public class AdminController {
             m.put("orderCancelId", e.getOrderCancel() != null ? e.getOrderCancel().getId() : null);
             m.put("cancelAmount", e.getOrderCancel() != null ? e.getOrderCancel().getCancelAmount() : null);
             m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
+            return m;
+        }).toList();
+
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/points-by-root-key")
+    @ResponseBody
+    public ResponseEntity<List<java.util.Map<String, Object>>> pointsByRootKey(
+            @RequestParam String rootPointKey) {
+
+        List<Point> points = pointRepository.findByRootPointKey(rootPointKey);
+
+        List<java.util.Map<String, Object>> result = points.stream().map(p -> {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("pointKey", p.getPointKey());
+            m.put("userId", p.getUserId());
+            m.put("type", p.getType().name());
+            m.put("typeLabel", p.getType().getDescription());
+            m.put("pointSourceType", p.getPointSourceType().name());
+            m.put("pointSourceTypeLabel", p.getPointSourceType().getDescription());
+            m.put("accumulatedPoint", p.getAccumulatedPoint());
+            m.put("remainingPoint", p.getRemainingPoint());
+            m.put("usedPoint", p.getUsedPoint());
+            m.put("expiredPoint", p.getExpiredPoint());
+            m.put("isCancelled", p.isCancelled());
+            m.put("isExpired", p.isExpired());
+            m.put("originPointKey", p.getOriginPointKey());
+            m.put("rootPointKey", p.getRootPointKey());
+            m.put("expiryDate", p.getExpiryDate() != null ? p.getExpiryDate().toString() : null);
+            m.put("regDateTime", p.getRegDateTime() != null ? p.getRegDateTime().toString() : null);
             return m;
         }).toList();
 

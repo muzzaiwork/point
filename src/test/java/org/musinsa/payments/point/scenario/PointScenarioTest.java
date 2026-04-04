@@ -141,11 +141,11 @@ public class PointScenarioTest {
             System.out.printf("%s | %s | %d\n", u.getUserId(), u.getName(), u.getRemainingPoint()));
 
         System.out.println("\n[POINT]");
-        System.out.println("pointKey | accumulatedPoint | remainingPoint | cancelled | expired | sourceType | originId | rootId | expiryDateTime");
-        System.out.println("---------|------------------|----------------|-----------|---------|------------|----------|--------|---------------");
-        pointRepository.findAll().forEach(p -> 
-            System.out.printf("%s | %d | %d | %b | %b | %s | %s | %s | %s\n", 
-                p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointKey(), p.getRootPointId(), p.getExpiryDateTime()));
+        System.out.println("pointKey | accumulatedPoint | remainingPoint | cancelled | expired | sourceType | originPointKey | rootPointKey | expiryDateTime");
+        System.out.println("---------|------------------|----------------|-----------|---------|------------|----------------|--------------|---------------");
+        pointRepository.findAll().forEach(p ->
+            System.out.printf("%s | %d | %d | %b | %b | %s | %s | %s | %s\n",
+                p.getPointKey(), p.getAccumulatedPoint(), p.getRemainingPoint(), p.isCancelled(), p.isExpired(), p.getPointSourceType(), p.getOriginPointKey(), p.getRootPointKey(), p.getExpiryDateTime()));
 
         System.out.println("\n[ORDERS]");
         System.out.println("orderNo | userId | orderedPoint | canceledPoint | type | status");

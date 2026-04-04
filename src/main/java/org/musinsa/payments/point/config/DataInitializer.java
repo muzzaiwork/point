@@ -326,11 +326,16 @@ public class DataInitializer implements ApplicationRunner {
     /**
      * 가장 복잡한 케이스:
      * [1회~3회 반복]
-     *   - 적립
+     *   - 적립 (만료 30일)
      *   - 사용 2건
-     *   - 사용취소 4건 (마지막 취소 시 만료 → AUTO_RESTORED 재지급)
-     *   - 재지급건에서 사용 2건
-     *   - 사용취소 2건 (마지막 취소 시 만료 → AUTO_RESTORED 재지급)
+     *   - 사용취소 2건 (정상 취소)
+     *   - 재사용 1건
+     *   - 강제 만료
+     *   - 사용취소 (만료 후 취소 → AUTO_RESTORED 재지급 #1)
+     *   - 재지급 #1에서 사용
+     *   - 재지급 #1 강제 만료
+     *   - 사용취소 (만료 후 취소 → AUTO_RESTORED 재지급 #2)
+     *   → 재지급 #2가 다음 라운드의 시작 포인트
      */
     private int runComplexScenario(String userId, LocalDateTime base) {
         int totalEvents = 0;
@@ -340,18 +345,17 @@ public class DataInitializer implements ApplicationRunner {
         for (int round = 1; round <= 3; round++) {
             String roundSuffix = "-R" + round;
 
-            // 적립 (만료 30일)
+            // 적립 (만료 30일) 또는 이전 라운드 재지급 포인트 사용
             setTime(base, minuteOffset);
             String accOrderNo = "ACC-" + userId + roundSuffix;
             String pk;
             if (prevRestoredPointKey == null) {
                 pk = pointService.accumulate(userId, 20000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
+                totalEvents += 1;
             } else {
-                // 이전 라운드의 재지급 포인트키를 이 라운드의 적립으로 사용
                 pk = prevRestoredPointKey;
             }
             minuteOffset += 10;
-            totalEvents += (prevRestoredPointKey == null ? 1 : 0);
 
             // 사용 1차
             setTime(base, minuteOffset);
@@ -367,13 +371,13 @@ public class DataInitializer implements ApplicationRunner {
             minuteOffset += 10;
             totalEvents += 1;
 
-            // 사용취소 1차 (useOrder1 전액)
+            // 사용취소 1차 (useOrder1 정상 취소)
             setTime(base, minuteOffset);
             pointService.cancelUsage(useOrder1, 3000L);
             minuteOffset += 10;
             totalEvents += 1;
 
-            // 사용취소 2차 (useOrder2 전액)
+            // 사용취소 2차 (useOrder2 정상 취소)
             setTime(base, minuteOffset);
             pointService.cancelUsage(useOrder2, 4000L);
             minuteOffset += 10;
@@ -386,31 +390,51 @@ public class DataInitializer implements ApplicationRunner {
             minuteOffset += 10;
             totalEvents += 1;
 
-            // 재사용 4차
-            setTime(base, minuteOffset);
-            String useOrder4 = "USE-" + userId + roundSuffix + "-U4";
-            pointService.use(userId, useOrder4, 6000L);
-            minuteOffset += 10;
-            totalEvents += 1;
-
             // 강제 만료 (잔액이 남은 상태)
             setTime(base, minuteOffset);
             forceExpire(pk, base.plusMinutes(minuteOffset));
             minuteOffset += 10;
             totalEvents += 1;
 
-            // 사용취소 3차 (useOrder3) → 만료 전 포인트라 정상 취소
+            // 사용취소 3차 (useOrder3) → 만료 후 취소 → AUTO_RESTORED 재지급 #1
             setTime(base, minuteOffset);
-            try { pointService.cancelUsage(useOrder3, 5000L); totalEvents += 1; } catch (Exception ignored) {}
+            String restored1Pk = null;
+            try {
+                pointService.cancelUsage(useOrder3, 5000L);
+                totalEvents += 1;
+                var restoredPoints = pointRepository.findByUserIdOrderByIdDesc(userId);
+                if (!restoredPoints.isEmpty()) {
+                    restored1Pk = restoredPoints.get(0).getPointKey();
+                }
+            } catch (Exception ignored) {}
             minuteOffset += 10;
 
-            // 사용취소 4차 (useOrder4) → 만료 후 취소 → AUTO_RESTORED 재지급
+            if (restored1Pk == null) {
+                prevRestoredPointKey = null;
+                continue;
+            }
+
+            // 재지급 #1에서 사용 4차
+            setTime(base, minuteOffset);
+            String useOrder4 = "USE-" + userId + roundSuffix + "-U4";
+            try {
+                pointService.use(userId, useOrder4, 6000L);
+                totalEvents += 1;
+            } catch (Exception ignored) {}
+            minuteOffset += 10;
+
+            // 재지급 #1 강제 만료
+            setTime(base, minuteOffset);
+            forceExpire(restored1Pk, base.plusMinutes(minuteOffset));
+            minuteOffset += 10;
+            totalEvents += 1;
+
+            // 사용취소 4차 (useOrder4) → 만료 후 취소 → AUTO_RESTORED 재지급 #2
             setTime(base, minuteOffset);
             String restoredPk = null;
             try {
                 pointService.cancelUsage(useOrder4, 6000L);
                 totalEvents += 1;
-                // 재지급된 포인트키 조회 (가장 최근 적립된 포인트)
                 var restoredPoints = pointRepository.findByUserIdOrderByIdDesc(userId);
                 if (!restoredPoints.isEmpty()) {
                     restoredPk = restoredPoints.get(0).getPointKey();

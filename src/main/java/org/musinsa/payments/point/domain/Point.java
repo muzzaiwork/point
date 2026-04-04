@@ -64,28 +64,20 @@ public class Point extends BaseEntity {
 
     private String originPointKey; // 만료 후 취소로 인한 신규 적립 시 원천 적립 pointKey
 
-    private Long rootPointId; // 전체 이력 추적을 위한 최상위 적립 ID
+    private String rootPointKey; // 전체 이력 추적을 위한 최상위 적립 pointKey
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PointSourceType pointSourceType; // 포인트 적립 원천 타입
 
     /**
-     * 최초 저장 시 rootPointId를 자기 자신으로 초기화한다.
+     * 최초 저장 시 rootPointKey를 자기 자신으로 초기화한다.
      */
     @PostPersist
-    public void initRootPointId() {
-        if (this.rootPointId == null) {
-            this.rootPointId = this.id;
+    public void initRootPointKey() {
+        if (this.rootPointKey == null) {
+            this.rootPointKey = this.pointKey;
         }
-    }
-
-    /**
-     * rootPointId를 설정한다.
-     * @param rootPointId 최상위 적립 ID
-     */
-    public void updateRootPointId(Long rootPointId) {
-        this.rootPointId = rootPointId;
     }
 
     /**
@@ -127,6 +119,7 @@ public class Point extends BaseEntity {
      */
     public void setExpiryDateTime(LocalDateTime expiryDate) {
         this.expiryDateTime = expiryDate;
+        this.expiryDate = expiryDate.toLocalDate();
     }
 
     /**

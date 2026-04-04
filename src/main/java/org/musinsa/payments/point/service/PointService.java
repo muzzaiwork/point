@@ -61,17 +61,18 @@ public class PointService {
      * 외부 적립(accumulate)과 만료 후 취소 재적립 모두 이 메서드를 통해 처리한다.
      */
     private String doAccumulate(String userId, Long amount, PointSourceType pointSourceType, PointType type,
-                                 LocalDateTime expiryDate, String orderNo, String originPointKey, Long rootPointId, OrderCancel orderCancel) {
+                                 LocalDateTime expiryDate, String orderNo, String originPointKey, String rootPointKey, OrderCancel orderCancel) {
+        String newPointKey = generatePointKey();
         Point point = Point.builder()
                 .userId(userId)
-                .pointKey(generatePointKey())
+                .pointKey(newPointKey)
                 .orderNo(orderNo)
                 .accumulatedPoint(amount)
                 .remainingPoint(amount)
                 .type(type)
                 .pointSourceType(pointSourceType)
                 .originPointKey(originPointKey)
-                .rootPointId(rootPointId)
+                .rootPointKey(rootPointKey != null ? rootPointKey : newPointKey)
                 .expiryDateTime(expiryDate)
                 .expiryDate(expiryDate.toLocalDate())
                 .isCancelled(false)
@@ -234,12 +235,12 @@ public class PointService {
             Point acc = useDetail.getPoint();
             if (acc.isExpired()) {
                 // 4-1. 만료된 적립 건: 원본 복구 불가 → AUTO_RESTORED 타입으로 신규 적립
-                //      만료일은 2999-12-31로 설정, originPointKey/rootPointId 상속
+                //      만료일은 2999-12-31로 설정, originPointKey/rootPointKey 상속
                 //      accumulatePoint() 대신 cancelUsage()로 잔액 복구 (1회 적립 한도 우회)
                 //      신규 적립(EXPIRED_CANCEL_RESTORE)으로 처리되므로 USE_CANCEL 이벤트는 기록하지 않음
                 user.cancelUsage(canCancelFromThis, acc.getType());
                 doAccumulate(order.getUserId(), canCancelFromThis, PointSourceType.AUTO_RESTORED, acc.getType(),
-                        LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getPointKey(), acc.getRootPointId(), orderCancel);
+                        LocalDateTime.of(2999, 12, 31, 23, 59, 59), null, acc.getPointKey(), acc.getRootPointKey(), orderCancel);
             } else {
                 // 4-2. 유효한 적립 건: 기존 포인트 잔액 복구
                 acc.restore(canCancelFromThis);

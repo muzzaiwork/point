@@ -76,6 +76,7 @@
         /* 이벤트 타입 뱃지 */
         .badge-accumulate  { background: #ebfbee; color: #2f9e44; }
         .badge-use         { background: #e7f5ff; color: #1971c2; }
+        .badge-use-cancel  { background: #fff4e6; color: #e67700; }
         .badge-cancel      { background: #fff0f0; color: #e03131; }
         .badge-expire      { background: #f3f0ff; color: #6741d9; }
         .badge-auto-restored-ev { background: #fff0f6; color: #c2255c; }
@@ -160,7 +161,10 @@
                 <th class="num">적립 금액</th>
                 <th class="num">잔여 금액</th>
                 <th>만료일</th>
+                <th>만료여부</th>
                 <th>상태</th>
+                <th>originPointId</th>
+                <th>재지급 pointKey</th>
                 <th>등록일시</th>
             </tr>
         </thead>
@@ -183,13 +187,19 @@
                 <td class="num" th:text="${#numbers.formatInteger(p.remainingPoint, 1, 'COMMA')}"></td>
                 <td th:text="${#temporals.format(p.expiryDate, 'yyyy-MM-dd')}"></td>
                 <td>
+                    <span th:if="${p.expired}" class="status-cancelled">만료</span>
+                    <span th:if="${!p.expired}" style="color:#aaa;font-size:0.8rem;">-</span>
+                </td>
+                <td>
                     <span th:if="${p.cancelled}"  class="status-cancelled">취소</span>
                     <span th:if="${!p.cancelled}" class="status-active">적립</span>
                 </td>
+                <td><code th:text="${p.originPointId != null ? p.originPointId : '-'}"></code></td>
+                <td><code th:text="${restoredPointKeyMap[p.id] != null ? restoredPointKeyMap[p.id] : '-'}"></code></td>
                 <td th:text="${#temporals.format(p.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
             </tr>
             <tr th:if="${points == null or #lists.isEmpty(points)}">
-                <td colspan="10" class="empty">조회된 내역이 없습니다.</td>
+                <td colspan="13" class="empty">조회된 내역이 없습니다.</td>
             </tr>
         </tbody>
     </table>
@@ -214,7 +224,8 @@
         USE:        { label: 'USE',        cls: 'badge-use' },
         CANCEL:     { label: 'CANCEL',     cls: 'badge-cancel' },
         EXPIRE:     { label: 'EXPIRE',     cls: 'badge-expire' },
-        AUTO_RESTORED: { label: 'AUTO_RESTORED', cls: 'badge-auto-restored-ev' }
+        AUTO_RESTORED: { label: 'AUTO_RESTORED', cls: 'badge-auto-restored-ev' },
+        USE_CANCEL:   { label: 'USE_CANCEL',   cls: 'badge-use-cancel' }
     };
 
     document.querySelectorAll('.point-key-link').forEach(link => {

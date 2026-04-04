@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/admin")
@@ -90,7 +92,15 @@ public class AdminController {
 
         List<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam);
 
+        // 각 포인트 id → 재지급된 포인트 key 매핑
+        Map<Long, String> restoredPointKeyMap = new HashMap<>();
+        for (Point p : points) {
+            pointRepository.findByOriginPointId(p.getId())
+                    .ifPresent(restored -> restoredPointKeyMap.put(p.getId(), restored.getPointKey()));
+        }
+
         model.addAttribute("points", points);
+        model.addAttribute("restoredPointKeyMap", restoredPointKeyMap);
         model.addAttribute("userId", userId);
         model.addAttribute("status", status);
         model.addAttribute("type", type);

@@ -63,6 +63,19 @@
         .pagination a:hover { background: #e9ecef; }
         .pagination .active { background: #3b5bdb; color: #fff; border-color: #3b5bdb; font-weight: 600; }
         .pagination .disabled { color: #aaa; pointer-events: none; }
+
+        /* 모달 */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: #fff; border-radius: 10px; padding: 28px 32px; min-width: 480px; max-width: 640px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .modal-header h2 { font-size: 1rem; font-weight: 700; color: #1a1a2e; }
+        .modal-close { background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #888; }
+        .modal table { box-shadow: none; border: 1px solid #e9ecef; }
+        .modal thead { background: #f1f3f5; }
+        .modal th { color: #333; }
+        .cancel-link { color: #3b5bdb; cursor: pointer; text-decoration: underline; }
+        .cancel-link:hover { color: #1c3faa; }
     </style>
 </head>
 <body>
@@ -142,7 +155,16 @@
                 <td th:text="${o.userId}"></td>
                 <td><code th:text="${o.orderNo}"></code></td>
                 <td class="num" th:text="${#numbers.formatInteger(o.orderedPoint, 1, 'COMMA')}"></td>
-                <td class="num" th:text="${#numbers.formatInteger(o.canceledPoint, 1, 'COMMA')}"></td>
+                <td class="num">
+                    <span th:if="${o.canceledPoint > 0}"
+                          class="cancel-link"
+                          th:data-order-id="${o.id}"
+                          th:data-order-no="${o.orderNo}"
+                          onclick="openCancelModal(this)">
+                        [[${#numbers.formatInteger(o.canceledPoint, 1, 'COMMA')}]]
+                    </span>
+                    <span th:if="${o.canceledPoint == 0}">0</span>
+                </td>
                 <td class="num" th:text="${#numbers.formatInteger(o.orderedPoint - o.canceledPoint, 1, 'COMMA')}"></td>
                 <td>
                     <span class="badge"
@@ -179,5 +201,61 @@
         <span th:if="${currentPage >= totalPages - 1}" class="disabled">다음</span>
     </div>
 </div>
+<!-- 취소 상세 모달 -->
+<div class="modal-overlay" id="cancelModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="modalTitle">취소 상세</h2>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th class="num">취소 금액</th>
+                    <th>취소 일시</th>
+                </tr>
+            </thead>
+            <tbody id="cancelTableBody">
+                <tr><td colspan="3" class="empty">로딩 중...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function openCancelModal(el) {
+    const orderId = el.dataset.orderId;
+    const orderNo = el.dataset.orderNo;
+    document.getElementById('modalTitle').textContent = '취소 상세 — ' + orderNo;
+    document.getElementById('cancelModal').classList.add('open');
+    document.getElementById('cancelTableBody').innerHTML = '<tr><td colspan="3" class="empty">로딩 중...</td></tr>';
+
+    fetch('/admin/order-cancels?orderId=' + orderId)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.length) {
+                document.getElementById('cancelTableBody').innerHTML = '<tr><td colspan="3" class="empty">취소 내역이 없습니다.</td></tr>';
+                return;
+            }
+            const rows = data.map((c, i) => {
+                const dt = c.regDateTime ? c.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+                return `<tr><td>${i+1}</td><td class="num">${Number(c.cancelAmount).toLocaleString()}</td><td>${dt}</td></tr>`;
+            }).join('');
+            document.getElementById('cancelTableBody').innerHTML = rows;
+        })
+        .catch(() => {
+            document.getElementById('cancelTableBody').innerHTML = '<tr><td colspan="3" class="empty">오류가 발생했습니다.</td></tr>';
+        });
+}
+
+function closeModal() {
+    document.getElementById('cancelModal').classList.remove('open');
+}
+
+document.getElementById('cancelModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+</script>
 </body>
 </html>

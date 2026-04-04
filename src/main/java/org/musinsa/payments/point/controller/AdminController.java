@@ -2,12 +2,14 @@ package org.musinsa.payments.point.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.musinsa.payments.point.domain.Order;
+import org.musinsa.payments.point.domain.OrderCancel;
 import org.musinsa.payments.point.domain.OrderType;
 import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointEvent;
 import org.musinsa.payments.point.domain.PointSourceType;
 import org.musinsa.payments.point.domain.PointType;
 import org.musinsa.payments.point.domain.UserAccount;
+import org.musinsa.payments.point.repository.OrderCancelRepository;
 import org.musinsa.payments.point.repository.OrderRepository;
 import org.musinsa.payments.point.repository.PointEventRepository;
 import org.musinsa.payments.point.repository.PointRepository;
@@ -39,6 +41,7 @@ public class AdminController {
     private final UserAccountRepository userAccountRepository;
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
+    private final OrderCancelRepository orderCancelRepository;
     private final PointEventRepository pointEventRepository;
 
     @GetMapping
@@ -170,6 +173,24 @@ public class AdminController {
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
         return "admin/orders";
+    }
+
+    @GetMapping("/order-cancels")
+    @ResponseBody
+    public ResponseEntity<List<java.util.Map<String, Object>>> orderCancels(
+            @RequestParam Long orderId) {
+
+        return orderRepository.findById(orderId).map(order -> {
+            List<OrderCancel> cancels = orderCancelRepository.findByOrder(order);
+            List<java.util.Map<String, Object>> result = cancels.stream().map(c -> {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("id", c.getId());
+                m.put("cancelAmount", c.getCancelAmount());
+                m.put("regDateTime", c.getRegDateTime() != null ? c.getRegDateTime().toString() : null);
+                return m;
+            }).toList();
+            return ResponseEntity.ok(result);
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/point-events")

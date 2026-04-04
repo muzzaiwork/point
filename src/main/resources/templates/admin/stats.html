@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - 포인트 통계</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #333; }
+        header { background: #1a1a2e; color: #fff; padding: 16px 32px; display: flex; align-items: center; gap: 24px; }
+        header h1 { font-size: 1.2rem; font-weight: 600; }
+        nav a { color: #aac4ff; text-decoration: none; font-size: 0.9rem; padding: 6px 14px; border-radius: 4px; }
+        nav a:hover, nav a.active { background: #16213e; color: #fff; }
+        .container { max-width: 1200px; margin: 32px auto; padding: 0 24px; }
+        .page-title { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+
+        .search-card { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .search-grid { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+        .field input, .field select { padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 0.85rem; background: #fafafa; color: #333; }
+        .field input:focus, .field select:focus { outline: none; border-color: #3b5bdb; background: #fff; }
+        .btn { padding: 7px 18px; border: none; border-radius: 6px; font-size: 0.85rem; cursor: pointer; font-weight: 500; }
+        .btn-primary { background: #3b5bdb; color: #fff; }
+        .btn-primary:hover { background: #1c3faa; }
+        .btn-reset { background: #e9ecef; color: #495057; text-decoration: none; display: inline-block; }
+        .btn-reset:hover { background: #dee2e6; }
+
+        .unit-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .unit-tab { padding: 7px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; text-decoration: none; color: #555; background: #e9ecef; }
+        .unit-tab.active { background: #3b5bdb; color: #fff; }
+        .unit-tab:hover:not(.active) { background: #dee2e6; }
+
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        thead { background: #1a1a2e; color: #fff; }
+        th { padding: 11px 14px; text-align: center; font-size: 0.8rem; font-weight: 500; white-space: nowrap; }
+        td { padding: 11px 14px; font-size: 0.84rem; border-bottom: 1px solid #f0f0f0; text-align: right; font-variant-numeric: tabular-nums; }
+        td.date-col { text-align: center; font-weight: 600; color: #1a1a2e; font-size: 0.83rem; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8f9ff; }
+        tr.total-row td { background: #f0f4ff; font-weight: 700; border-top: 2px solid #3b5bdb; }
+        tr.total-row td.date-col { color: #3b5bdb; }
+
+        .zero { color: #ccc; }
+        .empty { text-align: center; color: #999; padding: 48px; }
+
+        .th-accumulate       { background: #2f6b3e; }
+        .th-accumulate-cancel { background: #7b3030; }
+        .th-use              { background: #1a4a7a; }
+        .th-use-cancel       { background: #7a5a1a; }
+        .th-expire           { background: #4a2a7a; }
+        .th-restored         { background: #7a1a4a; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>🛠 Point Admin</h1>
+    <nav>
+        <a href="/admin/accounts">사용자 계정</a>
+        <a href="/admin/points">포인트 적립 내역</a>
+        <a href="/admin/orders">포인트 사용 내역</a>
+        <a href="/admin/stats" class="active">통계</a>
+    </nav>
+</header>
+
+<div class="container">
+    <div class="page-title">포인트 통계</div>
+
+    <div class="unit-tabs">
+        <a href="/admin/stats?unit=daily" th:classappend="${unit == 'daily'} ? ' active'" class="unit-tab">일별</a>
+        <a href="/admin/stats?unit=monthly" th:classappend="${unit == 'monthly'} ? ' active'" class="unit-tab">월별</a>
+        <a href="/admin/stats?unit=yearly" th:classappend="${unit == 'yearly'} ? ' active'" class="unit-tab">연도별</a>
+    </div>
+
+    <div class="search-card">
+        <form method="get" action="/admin/stats">
+            <input type="hidden" name="unit" th:value="${unit}">
+            <div class="search-grid">
+                <!-- 일별 -->
+                <th:block th:if="${unit == 'daily'}">
+                    <div class="field">
+                        <label>시작일</label>
+                        <input type="date" name="startDate" th:value="${startDate}">
+                    </div>
+                    <div class="field">
+                        <label>종료일</label>
+                        <input type="date" name="endDate" th:value="${endDate}">
+                    </div>
+                </th:block>
+                <!-- 월별 -->
+                <th:block th:if="${unit == 'monthly'}">
+                    <div class="field">
+                        <label>시작 월</label>
+                        <input type="month" name="startMonth" th:value="${startMonth}">
+                    </div>
+                    <div class="field">
+                        <label>종료 월</label>
+                        <input type="month" name="endMonth" th:value="${endMonth}">
+                    </div>
+                </th:block>
+                <!-- 연도별 -->
+                <th:block th:if="${unit == 'yearly'}">
+                    <div class="field">
+                        <label>시작 연도</label>
+                        <input type="number" name="startYear" min="2000" max="2099" style="width:90px" th:value="${startYear}">
+                    </div>
+                    <div class="field">
+                        <label>종료 연도</label>
+                        <input type="number" name="endYear" min="2000" max="2099" style="width:90px" th:value="${endYear}">
+                    </div>
+                </th:block>
+                <div class="field">
+                    <button type="submit" class="btn btn-primary">조회</button>
+                </div>
+                <div class="field">
+                    <a th:href="@{/admin/stats(unit=${unit})}" class="btn btn-reset">초기화</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div th:if="${statsList != null and !statsList.isEmpty()}">
+        <table>
+            <thead>
+                <tr>
+                    <th th:text="${unit == 'yearly'} ? '연도' : (${unit == 'monthly'} ? '연월' : '날짜')">날짜</th>
+                    <th class="th-accumulate">적립</th>
+                    <th class="th-accumulate-cancel">적립취소</th>
+                    <th class="th-use">사용</th>
+                    <th class="th-use-cancel">사용취소</th>
+                    <th class="th-expire">만료</th>
+                    <th class="th-restored">만료후취소재지급</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="row : ${statsList}">
+                    <td class="date-col" th:text="${row['date']}"></td>
+                    <td th:classappend="${row['ACCUMULATE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['ACCUMULATE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['ACCUMULATE_CANCEL'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['ACCUMULATE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['USE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['USE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['USE_CANCEL'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['USE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['EXPIRE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['EXPIRE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['EXPIRED_CANCEL_RESTORE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['EXPIRED_CANCEL_RESTORE'], 0, 'COMMA')}"></td>
+                </tr>
+                <tr class="total-row">
+                    <td class="date-col">합계</td>
+                    <td th:text="${#numbers.formatInteger(totals['ACCUMULATE'], 0, 'COMMA')}"></td>
+                    <td th:text="${#numbers.formatInteger(totals['ACCUMULATE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td th:text="${#numbers.formatInteger(totals['USE'], 0, 'COMMA')}"></td>
+                    <td th:text="${#numbers.formatInteger(totals['USE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td th:text="${#numbers.formatInteger(totals['EXPIRE'], 0, 'COMMA')}"></td>
+                    <td th:text="${#numbers.formatInteger(totals['EXPIRED_CANCEL_RESTORE'], 0, 'COMMA')}"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="empty" th:if="${statsList == null or statsList.isEmpty()}">
+        조회된 통계가 없습니다.
+    </div>
+</div>
+</body>
+</html>

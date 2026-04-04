@@ -35,6 +35,13 @@ public class DataInitializer implements ApplicationRunner {
     // 시나리오 인덱스 순환용
     private final AtomicInteger scenarioIdx = new AtomicInteger(0);
 
+    private final Random random = new Random(42); // 재현 가능한 시드
+
+    /** 1,000원 단위 랜덤 금액 생성 */
+    private long rand(int minThousands, int maxThousands) {
+        return (long)(minThousands + random.nextInt(maxThousands - minThousands + 1)) * 1000L;
+    }
+
     // 날짜별로 사용할 유저 목록 (10명)
     private static final String[] USER_IDS = {
         "seed01", "seed02", "seed03", "seed04", "seed05",
@@ -134,7 +141,7 @@ public class DataInitializer implements ApplicationRunner {
                 // 단순 적립
                 setTime(dateTime, 0);
                 String orderNo = "ACC-" + userId + "-" + dateSuffix;
-                String pk = pointService.accumulate(userId, 5000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, orderNo);
+                String pk = pointService.accumulate(userId, rand(3, 10), PointSourceType.ACCUMULATION, PointType.FREE, 365, orderNo);
                 pointQueue.addLast(new PointRecord(pk, orderNo, date));
                 return 1;
             }
@@ -142,7 +149,7 @@ public class DataInitializer implements ApplicationRunner {
                 // 적립 후 즉시 적립취소
                 setTime(dateTime, 0);
                 String orderNo = "ACC-" + userId + "-" + dateSuffix + "-C";
-                String pk = pointService.accumulate(userId, 3000L, PointSourceType.ACCUMULATION, PointType.FREE, 180, orderNo);
+                String pk = pointService.accumulate(userId, rand(2, 8), PointSourceType.ACCUMULATION, PointType.FREE, 180, orderNo);
                 setTime(dateTime, 10);
                 pointService.cancelAccumulation(pk);
                 return 2;
@@ -151,12 +158,14 @@ public class DataInitializer implements ApplicationRunner {
                 // 적립 후 사용
                 setTime(dateTime, 0);
                 String accOrderNo = "ACC-" + userId + "-" + dateSuffix + "-U";
-                String pk = pointService.accumulate(userId, 8000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
+                long acc2 = rand(5, 15);
+                long use2 = rand(2, (int)(acc2 / 1000));
+                String pk = pointService.accumulate(userId, acc2, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
                 pointQueue.addLast(new PointRecord(pk, accOrderNo, date));
 
                 setTime(dateTime, 20);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix;
-                pointService.use(userId, useOrderNo, 4000L);
+                pointService.use(userId, useOrderNo, use2);
                 orderQueue.addLast(new PointRecord(null, useOrderNo, date));
                 return 2;
             }
@@ -179,7 +188,7 @@ public class DataInitializer implements ApplicationRunner {
                 // 큐가 비어있으면 단순 적립으로 대체
                 setTime(dateTime, 0);
                 String orderNo = "ACC-" + userId + "-" + dateSuffix + "-F";
-                String pk = pointService.accumulate(userId, 2000L, PointSourceType.ACCUMULATION, PointType.FREE, 90, orderNo);
+                String pk = pointService.accumulate(userId, rand(1, 5), PointSourceType.ACCUMULATION, PointType.FREE, 90, orderNo);
                 pointQueue.addLast(new PointRecord(pk, orderNo, date));
                 return 1;
             }
@@ -187,26 +196,31 @@ public class DataInitializer implements ApplicationRunner {
                 // 사용 후 부분 취소
                 setTime(dateTime, 0);
                 String accOrderNo = "ACC-" + userId + "-" + dateSuffix + "-P";
-                String pk = pointService.accumulate(userId, 10000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
+                long acc4 = rand(8, 20);
+                long use4 = rand(4, (int)(acc4 / 1000));
+                long cancel4 = rand(1, (int)(use4 / 1000));
+                String pk = pointService.accumulate(userId, acc4, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
                 pointQueue.addLast(new PointRecord(pk, accOrderNo, date));
 
                 setTime(dateTime, 20);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-P";
-                pointService.use(userId, useOrderNo, 6000L);
+                pointService.use(userId, useOrderNo, use4);
                 setTime(dateTime, 40);
-                // 부분 취소 (3000원만)
-                pointService.cancelUsage(useOrderNo, 3000L);
+                // 부분 취소
+                pointService.cancelUsage(useOrderNo, cancel4);
                 return 3;
             }
             case 5 -> {
                 // 만료 강제처리 후 취소 → AUTO_RESTORED
                 setTime(dateTime, 0);
                 String accOrderNo = "ACC-" + userId + "-" + dateSuffix + "-E";
-                String pk = pointService.accumulate(userId, 7000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
+                long acc5 = rand(5, 12);
+                long use5 = rand(2, (int)(acc5 / 1000) - 1);
+                String pk = pointService.accumulate(userId, acc5, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
 
                 setTime(dateTime, 20);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-E";
-                pointService.use(userId, useOrderNo, 5000L);
+                pointService.use(userId, useOrderNo, use5);
 
                 // 강제 만료 처리 (+40분)
                 setTime(dateTime, 40);
@@ -215,37 +229,42 @@ public class DataInitializer implements ApplicationRunner {
                 // 사용 취소 → AUTO_RESTORED 발생 (+60분)
                 setTime(dateTime, 60);
                 try {
-                    pointService.cancelUsage(useOrderNo, 5000L);
+                    pointService.cancelUsage(useOrderNo, use5);
                 } catch (Exception ignored) {}
                 return 4;
             }
             case 6 -> {
                 // 여러 건 적립 후 전액 사용
                 setTime(dateTime, 0);
-                String pk1 = pointService.accumulate(userId, 2000L, PointSourceType.ACCUMULATION, PointType.FREE, 365,
+                long acc6a = rand(2, 8);
+                long acc6b = rand(2, 8);
+                long use6 = rand(1, (int)((acc6a + acc6b) / 1000));
+                String pk1 = pointService.accumulate(userId, acc6a, PointSourceType.ACCUMULATION, PointType.FREE, 365,
                         "ACC-" + userId + "-" + dateSuffix + "-M1");
                 setTime(dateTime, 10);
-                String pk2 = pointService.accumulate(userId, 3000L, PointSourceType.ACCUMULATION, PointType.FREE, 365,
+                String pk2 = pointService.accumulate(userId, acc6b, PointSourceType.ACCUMULATION, PointType.FREE, 365,
                         "ACC-" + userId + "-" + dateSuffix + "-M2");
                 pointQueue.addLast(new PointRecord(pk1, null, date));
                 pointQueue.addLast(new PointRecord(pk2, null, date));
 
                 setTime(dateTime, 30);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-M";
-                pointService.use(userId, useOrderNo, 5000L);
+                pointService.use(userId, useOrderNo, use6);
                 orderQueue.addLast(new PointRecord(null, useOrderNo, date));
                 return 3;
             }
             case 7 -> {
                 // 수기 지급 + 사용
                 setTime(dateTime, 0);
-                String pk = pointService.accumulate(userId, 4000L, PointSourceType.MANUAL, PointType.FREE, null, null);
+                long acc7 = rand(3, 10);
+                long use7 = rand(1, (int)(acc7 / 1000));
+                String pk = pointService.accumulate(userId, acc7, PointSourceType.MANUAL, PointType.FREE, null, null);
                 pointQueue.addLast(new PointRecord(pk, null, date));
 
                 setTime(dateTime, 30);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-MN";
                 try {
-                    pointService.use(userId, useOrderNo, 2000L);
+                    pointService.use(userId, useOrderNo, use7);
                     orderQueue.addLast(new PointRecord(null, useOrderNo, date));
                 } catch (Exception ignored) {}
                 return 2;
@@ -254,23 +273,26 @@ public class DataInitializer implements ApplicationRunner {
                 // 복합: 적립 → 사용 → 사용취소 → 재사용 → 만료 → 취소(AUTO_RESTORED)
                 setTime(dateTime, 0);
                 String accOrderNo = "ACC-" + userId + "-" + dateSuffix + "-CX";
-                String pk = pointService.accumulate(userId, 12000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
+                long acc8 = rand(10, 20);
+                long use8a = rand(3, (int)(acc8 / 1000) / 2);
+                long use8b = rand(4, (int)(acc8 / 1000) - (int)(use8a / 1000));
+                String pk = pointService.accumulate(userId, acc8, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
                 pointQueue.addLast(new PointRecord(pk, accOrderNo, date));
 
                 // 1차 사용
                 setTime(dateTime, 10);
                 String useOrderNo1 = "USE-" + userId + "-" + dateSuffix + "-CX1";
-                pointService.use(userId, useOrderNo1, 5000L);
+                pointService.use(userId, useOrderNo1, use8a);
 
                 // 1차 사용취소
                 setTime(dateTime, 20);
-                pointService.cancelUsage(useOrderNo1, 5000L);
+                pointService.cancelUsage(useOrderNo1, use8a);
 
                 // 재사용
                 setTime(dateTime, 30);
                 String useOrderNo2 = "USE-" + userId + "-" + dateSuffix + "-CX2";
                 try {
-                    pointService.use(userId, useOrderNo2, 7000L);
+                    pointService.use(userId, useOrderNo2, use8b);
                 } catch (Exception ignored) {}
 
                 // 강제 만료 (잔액 5000 남은 상태)
@@ -280,7 +302,7 @@ public class DataInitializer implements ApplicationRunner {
                 // 만료 후 취소 → AUTO_RESTORED
                 setTime(dateTime, 70);
                 try {
-                    pointService.cancelUsage(useOrderNo2, 7000L);
+                    pointService.cancelUsage(useOrderNo2, use8b);
                 } catch (Exception ignored) {}
                 return 6;
             }
@@ -288,22 +310,26 @@ public class DataInitializer implements ApplicationRunner {
                 // 복합: 적립 → 사용 → 부분취소 → 재사용 → 만료 → 취소(AUTO_RESTORED)
                 setTime(dateTime, 0);
                 String accOrderNo = "ACC-" + userId + "-" + dateSuffix + "-ER";
-                String pk = pointService.accumulate(userId, 9000L, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
+                long acc9 = rand(7, 15);
+                long use9a = rand(3, (int)(acc9 / 1000) - 1);
+                long cancel9 = rand(1, (int)(use9a / 1000));
+                long use9b = rand(2, (int)(acc9 / 1000) - (int)(use9a / 1000) + (int)(cancel9 / 1000));
+                String pk = pointService.accumulate(userId, acc9, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
 
                 // 1차 사용
                 setTime(dateTime, 15);
                 String useOrderNo1 = "USE-" + userId + "-" + dateSuffix + "-ER1";
-                pointService.use(userId, useOrderNo1, 6000L);
+                pointService.use(userId, useOrderNo1, use9a);
 
-                // 부분 취소 (3000만)
+                // 부분 취소
                 setTime(dateTime, 25);
-                pointService.cancelUsage(useOrderNo1, 3000L);
+                pointService.cancelUsage(useOrderNo1, cancel9);
 
                 // 재사용 (취소로 복원된 포인트 재사용)
                 setTime(dateTime, 35);
                 String useOrderNo2 = "USE-" + userId + "-" + dateSuffix + "-ER2";
                 try {
-                    pointService.use(userId, useOrderNo2, 4000L);
+                    pointService.use(userId, useOrderNo2, use9b);
                 } catch (Exception ignored) {}
 
                 // 강제 만료
@@ -313,7 +339,7 @@ public class DataInitializer implements ApplicationRunner {
                 // 만료 후 취소 → AUTO_RESTORED
                 setTime(dateTime, 65);
                 try {
-                    pointService.cancelUsage(useOrderNo2, 4000L);
+                    pointService.cancelUsage(useOrderNo2, use9b);
                 } catch (Exception ignored) {}
                 return 6;
             }

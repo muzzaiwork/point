@@ -46,8 +46,20 @@ public interface PointEventRepository extends JpaRepository<PointEvent, Long> {
     List<PointEvent> findAllByUserId(@Param("userId") String userId);
 
     /**
-     * 일별 집계 (정산용): 특정 날짜 범위의 이벤트 타입별 합계를 조회한다.
+     * 일별 집계: 특정 날짜 범위의 이벤트 타입별 합계를 조회한다.
      */
-    @Query("SELECT pe.regDate, pe.pointEventType, SUM(pe.amount) FROM PointEvent pe WHERE pe.regDate BETWEEN :startDate AND :endDate GROUP BY pe.regDate, pe.pointEventType ORDER BY pe.regDate ASC, pe.pointEventType ASC")
+    @Query("SELECT pe.regDate, pe.pointEventType, SUM(pe.amount) FROM PointEvent pe WHERE pe.regDate BETWEEN :startDate AND :endDate GROUP BY pe.regDate, pe.pointEventType ORDER BY pe.regDate DESC, pe.pointEventType ASC")
     List<Object[]> findDailyAggregation(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    /**
+     * 월별 집계: 특정 날짜 범위의 연월별 이벤트 타입별 합계를 조회한다.
+     */
+    @Query("SELECT FUNCTION('FORMATDATETIME', pe.regDate, 'yyyy-MM'), pe.pointEventType, SUM(pe.amount) FROM PointEvent pe WHERE pe.regDate BETWEEN :startDate AND :endDate GROUP BY FUNCTION('FORMATDATETIME', pe.regDate, 'yyyy-MM'), pe.pointEventType ORDER BY FUNCTION('FORMATDATETIME', pe.regDate, 'yyyy-MM') DESC, pe.pointEventType ASC")
+    List<Object[]> findMonthlyAggregation(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    /**
+     * 연도별 집계: 특정 날짜 범위의 연도별 이벤트 타입별 합계를 조회한다.
+     */
+    @Query("SELECT FUNCTION('YEAR', pe.regDate), pe.pointEventType, SUM(pe.amount) FROM PointEvent pe WHERE pe.regDate BETWEEN :startDate AND :endDate GROUP BY FUNCTION('YEAR', pe.regDate), pe.pointEventType ORDER BY FUNCTION('YEAR', pe.regDate) DESC, pe.pointEventType ASC")
+    List<Object[]> findYearlyAggregation(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

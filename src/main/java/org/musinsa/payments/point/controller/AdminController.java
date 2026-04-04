@@ -136,6 +136,142 @@ public class AdminController {
         return "admin/points";
     }
 
+    @GetMapping("/stats")
+    public String stats(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String startMonth,
+            @RequestParam(required = false) String endMonth,
+            @RequestParam(required = false) String startYear,
+            @RequestParam(required = false) String endYear,
+            @RequestParam(defaultValue = "daily") String unit,
+            Model model) {
+
+        LocalDate startDateParam;
+        LocalDate endDateParam;
+
+        if ("yearly".equals(unit)) {
+            int sy = (startYear != null && !startYear.isBlank()) ? Integer.parseInt(startYear) : 2025;
+            int ey = (endYear != null && !endYear.isBlank()) ? Integer.parseInt(endYear) : 2025;
+            startDateParam = LocalDate.of(sy, 1, 1);
+            endDateParam = LocalDate.of(ey, 12, 31);
+            startYear = String.valueOf(sy);
+            endYear = String.valueOf(ey);
+        } else if ("monthly".equals(unit)) {
+            java.time.YearMonth defaultStart = java.time.YearMonth.of(2025, 1);
+            java.time.YearMonth defaultEnd = java.time.YearMonth.of(2025, 12);
+            java.time.YearMonth smYm = (startMonth != null && !startMonth.isBlank()) ? java.time.YearMonth.parse(startMonth) : defaultStart;
+            java.time.YearMonth emYm = (endMonth != null && !endMonth.isBlank()) ? java.time.YearMonth.parse(endMonth) : defaultEnd;
+            startDateParam = smYm.atDay(1);
+            endDateParam = emYm.atEndOfMonth();
+            startMonth = smYm.toString();
+            endMonth = emYm.toString();
+        } else {
+            startDateParam = (startDate != null && !startDate.isBlank())
+                    ? LocalDate.parse(startDate) : LocalDate.of(2025, 1, 1);
+            endDateParam = (endDate != null && !endDate.isBlank())
+                    ? LocalDate.parse(endDate) : LocalDate.of(2025, 12, 31);
+            startDate = startDateParam.toString();
+            endDate = endDateParam.toString();
+        }
+
+        List<Map<String, Object>> statsList = new java.util.ArrayList<>();
+
+        if ("yearly".equals(unit)) {
+            List<Object[]> rows = pointEventRepository.findYearlyAggregation(startDateParam, endDateParam);
+            java.util.TreeMap<String, Map<String, Long>> statsMap = new java.util.TreeMap<>();
+            for (Object[] row : rows) {
+                String period = String.valueOf(row[0]);
+                PointEventType eventType = (PointEventType) row[1];
+                Long amount = (Long) row[2];
+                statsMap.computeIfAbsent(period, k -> new HashMap<>()).put(eventType.name(), amount);
+            }
+            // 연도 범위 내 모든 연도 포함
+            int syInt = startDateParam.getYear();
+            int eyInt = endDateParam.getYear();
+            for (int y = syInt; y <= eyInt; y++) {
+                String period = String.valueOf(y);
+                Map<String, Long> m = statsMap.getOrDefault(period, new HashMap<>());
+                Map<String, Object> entry = new java.util.LinkedHashMap<>();
+                entry.put("date", period);
+                entry.put("ACCUMULATE", m.getOrDefault("ACCUMULATE", 0L));
+                entry.put("ACCUMULATE_CANCEL", m.getOrDefault("ACCUMULATE_CANCEL", 0L));
+                entry.put("USE", m.getOrDefault("USE", 0L));
+                entry.put("USE_CANCEL", m.getOrDefault("USE_CANCEL", 0L));
+                entry.put("EXPIRE", m.getOrDefault("EXPIRE", 0L));
+                entry.put("EXPIRED_CANCEL_RESTORE", m.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L));
+                statsList.add(entry);
+            }
+        } else if ("monthly".equals(unit)) {
+            List<Object[]> rows = pointEventRepository.findMonthlyAggregation(startDateParam, endDateParam);
+            java.util.TreeMap<String, Map<String, Long>> statsMap = new java.util.TreeMap<>();
+            for (Object[] row : rows) {
+                String period = (String) row[0];
+                PointEventType eventType = (PointEventType) row[1];
+                Long amount = (Long) row[2];
+                statsMap.computeIfAbsent(period, k -> new HashMap<>()).put(eventType.name(), amount);
+            }
+            // 월 범위 내 모든 월 포함
+            java.time.YearMonth startYm = java.time.YearMonth.from(startDateParam);
+            java.time.YearMonth endYm = java.time.YearMonth.from(endDateParam);
+            for (java.time.YearMonth ym = startYm; !ym.isAfter(endYm); ym = ym.plusMonths(1)) {
+                String period = ym.toString();
+                Map<String, Long> m = statsMap.getOrDefault(period, new HashMap<>());
+                Map<String, Object> entry = new java.util.LinkedHashMap<>();
+                entry.put("date", period);
+                entry.put("ACCUMULATE", m.getOrDefault("ACCUMULATE", 0L));
+                entry.put("ACCUMULATE_CANCEL", m.getOrDefault("ACCUMULATE_CANCEL", 0L));
+                entry.put("USE", m.getOrDefault("USE", 0L));
+                entry.put("USE_CANCEL", m.getOrDefault("USE_CANCEL", 0L));
+                entry.put("EXPIRE", m.getOrDefault("EXPIRE", 0L));
+                entry.put("EXPIRED_CANCEL_RESTORE", m.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L));
+                statsList.add(entry);
+            }
+        } else {
+            List<Object[]> rows = pointEventRepository.findDailyAggregation(startDateParam, endDateParam);
+            java.util.TreeMap<LocalDate, Map<String, Long>> statsMap = new java.util.TreeMap<>();
+            for (Object[] row : rows) {
+                LocalDate date = (LocalDate) row[0];
+                PointEventType eventType = (PointEventType) row[1];
+                Long amount = (Long) row[2];
+                statsMap.computeIfAbsent(date, k -> new HashMap<>()).put(eventType.name(), amount);
+            }
+            LocalDate cursor = startDateParam;
+            while (!cursor.isAfter(endDateParam)) {
+                Map<String, Long> dayMap = statsMap.getOrDefault(cursor, new HashMap<>());
+                Map<String, Object> entry = new java.util.LinkedHashMap<>();
+                entry.put("date", cursor.toString());
+                entry.put("ACCUMULATE", dayMap.getOrDefault("ACCUMULATE", 0L));
+                entry.put("ACCUMULATE_CANCEL", dayMap.getOrDefault("ACCUMULATE_CANCEL", 0L));
+                entry.put("USE", dayMap.getOrDefault("USE", 0L));
+                entry.put("USE_CANCEL", dayMap.getOrDefault("USE_CANCEL", 0L));
+                entry.put("EXPIRE", dayMap.getOrDefault("EXPIRE", 0L));
+                entry.put("EXPIRED_CANCEL_RESTORE", dayMap.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L));
+                statsList.add(entry);
+                cursor = cursor.plusDays(1);
+            }
+        }
+
+        Map<String, Long> totals = new HashMap<>();
+        totals.put("ACCUMULATE", statsList.stream().mapToLong(r -> (Long) r.get("ACCUMULATE")).sum());
+        totals.put("ACCUMULATE_CANCEL", statsList.stream().mapToLong(r -> (Long) r.get("ACCUMULATE_CANCEL")).sum());
+        totals.put("USE", statsList.stream().mapToLong(r -> (Long) r.get("USE")).sum());
+        totals.put("USE_CANCEL", statsList.stream().mapToLong(r -> (Long) r.get("USE_CANCEL")).sum());
+        totals.put("EXPIRE", statsList.stream().mapToLong(r -> (Long) r.get("EXPIRE")).sum());
+        totals.put("EXPIRED_CANCEL_RESTORE", statsList.stream().mapToLong(r -> (Long) r.get("EXPIRED_CANCEL_RESTORE")).sum());
+
+        model.addAttribute("statsList", statsList);
+        model.addAttribute("totals", totals);
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
+        model.addAttribute("startMonth", startMonth);
+        model.addAttribute("endMonth", endMonth);
+        model.addAttribute("startYear", startYear);
+        model.addAttribute("endYear", endYear);
+        model.addAttribute("unit", unit);
+        return "admin/stats";
+    }
+
     @GetMapping("/orders")
     public String orders(
             @RequestParam(required = false) String userId,

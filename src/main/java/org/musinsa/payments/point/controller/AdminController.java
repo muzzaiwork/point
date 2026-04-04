@@ -178,18 +178,54 @@ public class AdminController {
 
     @GetMapping("/order-cancels")
     @ResponseBody
-    public ResponseEntity<List<java.util.Map<String, Object>>> orderCancels(
+    public ResponseEntity<java.util.Map<String, Object>> orderCancels(
             @RequestParam Long orderId) {
 
         return orderRepository.findById(orderId).map(order -> {
+            // 취소 이력 목록
             List<OrderCancel> cancels = orderCancelRepository.findByOrder(order);
-            List<java.util.Map<String, Object>> result = cancels.stream().map(c -> {
+            List<java.util.Map<String, Object>> cancelList = cancels.stream().map(c -> {
                 java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
                 m.put("id", c.getId());
                 m.put("cancelAmount", c.getCancelAmount());
                 m.put("regDateTime", c.getRegDateTime() != null ? c.getRegDateTime().toString() : null);
                 return m;
             }).toList();
+
+            // 포인트별 취소 상세 (USE_CANCEL + AUTO_RESTORED)
+            List<PointEvent> useCancelEvents = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.USE_CANCEL);
+            List<PointEvent> autoRestoredEvents = pointEventRepository.findByOrderAndPointEventTypeOrderByIdDesc(order, PointEventType.EXPIRED_CANCEL_RESTORE);
+
+            List<java.util.Map<String, Object>> pointDetails = new java.util.ArrayList<>();
+            for (PointEvent e : useCancelEvents) {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("eventType", "USE_CANCEL");
+                m.put("eventTypeLabel", "사용취소");
+                m.put("pointKey", e.getPoint() != null ? e.getPoint().getPointKey() : null);
+                m.put("amount", e.getAmount());
+                m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
+                pointDetails.add(m);
+            }
+            for (PointEvent e : autoRestoredEvents) {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("eventType", "AUTO_RESTORED");
+                m.put("eventTypeLabel", "만료 후 재지급");
+                m.put("pointKey", e.getPoint() != null ? e.getPoint().getPointKey() : null);
+                m.put("amount", e.getAmount());
+                m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
+                pointDetails.add(m);
+            }
+            pointDetails.sort((a, b) -> {
+                String da = (String) a.get("regDateTime");
+                String db = (String) b.get("regDateTime");
+                if (da == null) return 1;
+                if (db == null) return -1;
+                return da.compareTo(db);
+            });
+
+            java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+            result.put("cancels", cancelList);
+            result.put("pointDetails", pointDetails);
             return ResponseEntity.ok(result);
         }).orElse(ResponseEntity.notFound().build());
     }

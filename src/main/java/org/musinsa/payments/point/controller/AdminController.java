@@ -12,11 +12,13 @@ import org.musinsa.payments.point.repository.OrderRepository;
 import org.musinsa.payments.point.repository.PointEventRepository;
 import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.UserAccountRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -131,16 +133,25 @@ public class AdminController {
     }
 
     @GetMapping("/point-events")
-    public String pointEvents(
-            @RequestParam(required = false) String pointKey,
-            Model model) {
+    @ResponseBody
+    public ResponseEntity<List<java.util.Map<String, Object>>> pointEvents(
+            @RequestParam(required = false) String pointKey) {
 
         List<PointEvent> events = (pointKey != null && !pointKey.isBlank())
                 ? pointEventRepository.findAllByPointKey(pointKey)
                 : List.of();
 
-        model.addAttribute("events", events);
-        model.addAttribute("pointKey", pointKey);
-        return "admin/point-events";
+        List<java.util.Map<String, Object>> result = events.stream().map(e -> {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", e.getId());
+            m.put("pointEventType", e.getPointEventType().name());
+            m.put("amount", e.getAmount());
+            m.put("orderNo", e.getOrder() != null ? e.getOrder().getOrderNo() : null);
+            m.put("orderCancelId", e.getOrderCancel() != null ? e.getOrderCancel().getId() : null);
+            m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
+            return m;
+        }).toList();
+
+        return ResponseEntity.ok(result);
     }
 }

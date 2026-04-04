@@ -12,6 +12,9 @@ import org.musinsa.payments.point.repository.OrderRepository;
 import org.musinsa.payments.point.repository.PointEventRepository;
 import org.musinsa.payments.point.repository.PointRepository;
 import org.musinsa.payments.point.repository.UserAccountRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -31,6 +34,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdminController {
 
+    private static final int PAGE_SIZE = 20;
+
     private final UserAccountRepository userAccountRepository;
     private final PointRepository pointRepository;
     private final OrderRepository orderRepository;
@@ -45,21 +50,27 @@ public class AdminController {
     public String accounts(
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String name,
+            @RequestParam(defaultValue = "0") int page,
             Model model) {
 
-        List<UserAccount> accounts;
-        if ((userId != null && !userId.isBlank()) || (name != null && !name.isBlank())) {
-            accounts = userAccountRepository.searchAccounts(
-                    (userId != null && !userId.isBlank()) ? userId : null,
-                    (name != null && !name.isBlank()) ? name : null
-            );
-        } else {
-            accounts = userAccountRepository.findAll();
-        }
+        PageRequest pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("regDateTime").descending());
+        Page<UserAccount> accounts = userAccountRepository.searchAccounts(
+                (userId != null && !userId.isBlank()) ? userId : null,
+                (name != null && !name.isBlank()) ? name : null,
+                pageable
+        );
+
+        int totalPages = accounts.getTotalPages();
+        int startPage = Math.max(0, page - 2);
+        int endPage = Math.min(totalPages - 1, page + 2);
 
         model.addAttribute("accounts", accounts);
         model.addAttribute("userId", userId);
         model.addAttribute("name", name);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
         return "admin/accounts";
     }
 
@@ -71,6 +82,7 @@ public class AdminController {
             @RequestParam(required = false) String sourceType,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "0") int page,
             Model model) {
 
         String userIdParam = (userId != null && !userId.isBlank()) ? userId : null;
@@ -90,14 +102,18 @@ public class AdminController {
         LocalDate endDateParam = null;
         try { if (endDate != null && !endDate.isBlank()) endDateParam = LocalDate.parse(endDate); } catch (Exception ignored) {}
 
-        List<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam);
+        PageRequest pageable = PageRequest.of(page, PAGE_SIZE);
+        Page<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam, pageable);
 
-        // 각 포인트 id → 재지급된 포인트 key 매핑
         Map<Long, String> restoredPointKeyMap = new HashMap<>();
         for (Point p : points) {
             pointRepository.findByOriginPointKey(p.getPointKey())
                     .ifPresent(restored -> restoredPointKeyMap.put(p.getId(), restored.getPointKey()));
         }
+
+        int totalPages = points.getTotalPages();
+        int startPage = Math.max(0, page - 2);
+        int endPage = Math.min(totalPages - 1, page + 2);
 
         model.addAttribute("points", points);
         model.addAttribute("restoredPointKeyMap", restoredPointKeyMap);
@@ -107,6 +123,10 @@ public class AdminController {
         model.addAttribute("sourceType", sourceType);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
         return "admin/points";
     }
 
@@ -117,6 +137,7 @@ public class AdminController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "0") int page,
             Model model) {
 
         String userIdParam = (userId != null && !userId.isBlank()) ? userId : null;
@@ -131,7 +152,12 @@ public class AdminController {
         LocalDateTime endDateParam = null;
         try { if (endDate != null && !endDate.isBlank()) endDateParam = LocalDate.parse(endDate).atTime(23, 59, 59); } catch (Exception ignored) {}
 
-        List<Order> orders = orderRepository.searchOrders(userIdParam, orderNoParam, typeParam, startDateParam, endDateParam);
+        PageRequest pageable = PageRequest.of(page, PAGE_SIZE);
+        Page<Order> orders = orderRepository.searchOrders(userIdParam, orderNoParam, typeParam, startDateParam, endDateParam, pageable);
+
+        int totalPages = orders.getTotalPages();
+        int startPage = Math.max(0, page - 2);
+        int endPage = Math.min(totalPages - 1, page + 2);
 
         model.addAttribute("orders", orders);
         model.addAttribute("userId", userId);
@@ -139,6 +165,10 @@ public class AdminController {
         model.addAttribute("type", type);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
+        model.addAttribute("currentPage", page);
+        model.addAttribute("totalPages", totalPages);
+        model.addAttribute("startPage", startPage);
+        model.addAttribute("endPage", endPage);
         return "admin/orders";
     }
 

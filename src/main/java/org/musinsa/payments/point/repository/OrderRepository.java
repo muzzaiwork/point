@@ -2,6 +2,8 @@ package org.musinsa.payments.point.repository;
 
 import org.musinsa.payments.point.domain.Order;
 import org.musinsa.payments.point.domain.OrderType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,11 +24,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
           AND (:endDate IS NULL OR o.regDateTime <= :endDate)
         ORDER BY o.regDateTime DESC
     """)
-    List<Order> searchOrders(
+    Page<Order> searchOrders(
             @Param("userId") String userId,
             @Param("orderNo") String orderNo,
             @Param("type") OrderType type,
             @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable
     );
 }

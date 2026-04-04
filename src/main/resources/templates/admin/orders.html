@@ -53,6 +53,16 @@
 
         .empty { text-align: center; color: #999; padding: 48px; }
         code { font-family: monospace; font-size: 0.8rem; color: #555; }
+
+        /* 페이지네이션 */
+        .pagination { display: flex; justify-content: center; gap: 4px; margin-top: 20px; }
+        .pagination a, .pagination span {
+            padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; text-decoration: none;
+            border: 1px solid #d0d7de; color: #333; background: #fff;
+        }
+        .pagination a:hover { background: #e9ecef; }
+        .pagination .active { background: #3b5bdb; color: #fff; border-color: #3b5bdb; font-weight: 600; }
+        .pagination .disabled { color: #aaa; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -107,7 +117,8 @@
 
     <!-- 결과 요약 -->
     <div class="result-summary">
-        총 <strong th:text="${#lists.size(orders)}">0</strong>건
+        총 <strong th:text="${orders.totalElements}">0</strong>건
+        (페이지 <strong th:text="${currentPage + 1}">1</strong> / <strong th:text="${totalPages}">1</strong>)
     </div>
 
     <!-- 테이블 -->
@@ -144,11 +155,29 @@
                 </td>
                 <td th:text="${#temporals.format(o.regDateTime, 'yyyy-MM-dd HH:mm')}"></td>
             </tr>
-            <tr th:if="${orders == null or #lists.isEmpty(orders)}">
+            <tr th:if="${orders == null or orders.isEmpty()}">
                 <td colspan="9" class="empty">조회된 내역이 없습니다.</td>
             </tr>
         </tbody>
     </table>
+
+    <!-- 페이지네이션 -->
+    <div class="pagination" th:if="${totalPages > 1}">
+        <a th:if="${currentPage > 0}"
+           th:href="@{/admin/orders(userId=${userId}, orderNo=${orderNo}, type=${type}, startDate=${startDate}, endDate=${endDate}, page=${currentPage - 1})}">이전</a>
+        <span th:if="${currentPage == 0}" class="disabled">이전</span>
+
+        <th:block th:each="i : ${#numbers.sequence(startPage, endPage)}">
+            <a th:if="${i != currentPage}"
+               th:href="@{/admin/orders(userId=${userId}, orderNo=${orderNo}, type=${type}, startDate=${startDate}, endDate=${endDate}, page=${i})}"
+               th:text="${i + 1}"></a>
+            <span th:if="${i == currentPage}" class="active" th:text="${i + 1}"></span>
+        </th:block>
+
+        <a th:if="${currentPage < totalPages - 1}"
+           th:href="@{/admin/orders(userId=${userId}, orderNo=${orderNo}, type=${type}, startDate=${startDate}, endDate=${endDate}, page=${currentPage + 1})}">다음</a>
+        <span th:if="${currentPage >= totalPages - 1}" class="disabled">다음</span>
+    </div>
 </div>
 </body>
 </html>

@@ -3,6 +3,8 @@ package org.musinsa.payments.point.repository;
 import org.musinsa.payments.point.domain.Point;
 import org.musinsa.payments.point.domain.PointSourceType;
 import org.musinsa.payments.point.domain.PointType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,12 +36,13 @@ public interface PointRepository extends JpaRepository<Point, Long> {
            "(:startDate IS NULL OR p.expiryDate >= :startDate) AND " +
            "(:endDate IS NULL OR p.expiryDate <= :endDate) " +
            "ORDER BY p.id DESC")
-    List<Point> searchPoints(
+    Page<Point> searchPoints(
             @Param("userId") String userId,
             @Param("cancelled") Boolean cancelled,
             @Param("type") PointType type,
             @Param("sourceType") PointSourceType sourceType,
             @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate
+            @Param("endDate") LocalDate endDate,
+            Pageable pageable
     );
 }

@@ -1,6 +1,8 @@
 package org.musinsa.payments.point.repository;
 
 import org.musinsa.payments.point.domain.UserAccount;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -20,7 +22,6 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
         SELECT u FROM UserAccount u
         WHERE (:userId IS NULL OR u.userId = :userId)
           AND (:name IS NULL OR u.name LIKE %:name%)
-        ORDER BY u.id ASC
     """)
-    List<UserAccount> searchAccounts(@Param("userId") String userId, @Param("name") String name);
+    Page<UserAccount> searchAccounts(@Param("userId") String userId, @Param("name") String name, Pageable pageable);
 }

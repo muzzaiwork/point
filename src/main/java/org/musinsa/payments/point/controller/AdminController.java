@@ -216,6 +216,7 @@ public class AdminController {
                 m.put("eventType", "AUTO_RESTORED");
                 m.put("eventTypeLabel", "만료 후 재지급");
                 m.put("pointKey", e.getPoint() != null ? e.getPoint().getPointKey() : null);
+                m.put("expiredPointKey", e.getPoint() != null ? e.getPoint().getOriginPointKey() : null);
                 m.put("amount", e.getAmount());
                 m.put("regDateTime", e.getRegDateTime() != null ? e.getRegDateTime().toString() : null);
                 pointDetails.add(m);

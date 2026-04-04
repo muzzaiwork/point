@@ -241,7 +241,7 @@
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
         <div style="margin-bottom: 16px;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 8px;">▸ 취소 이력</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 8px;">▸ 취소 이력 <span style="font-size:0.75rem;color:#999;font-weight:400;">(행을 클릭하면 포인트별 상세가 표시됩니다)</span></div>
             <table>
                 <thead>
                     <tr>
@@ -256,7 +256,7 @@
             </table>
         </div>
         <div>
-            <div style="font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 8px;">▸ 포인트별 취소 상세</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 8px;">▸ 포인트별 취소 상세 <span id="cancelDetailLabel" style="font-size:0.75rem;color:#999;font-weight:400;"></span></div>
             <table>
                 <thead>
                     <tr>
@@ -268,7 +268,7 @@
                     </tr>
                 </thead>
                 <tbody id="cancelDetailTableBody">
-                    <tr><td colspan="5" class="empty">로딩 중...</td></tr>
+                    <tr><td colspan="5" class="empty">취소 이력 행을 클릭하세요.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -308,6 +308,24 @@ function closeUseModal() {
 document.getElementById('useModal').addEventListener('click', function(e) {
     if (e.target === this) closeUseModal();
 });
+let _allCancelDetails = [];
+
+function renderCancelDetail(cancelId) {
+    const filtered = cancelId === null ? _allCancelDetails : _allCancelDetails.filter(d => d.cancelId == cancelId);
+    const label = document.getElementById('cancelDetailLabel');
+    if (!filtered.length) {
+        document.getElementById('cancelDetailTableBody').innerHTML = '<tr><td colspan="5" class="empty">포인트 취소 상세가 없습니다.</td></tr>';
+        label.textContent = '';
+    } else {
+        const rows = filtered.map((d, i) => {
+            const dt = d.regDateTime ? d.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+            const typeColor = d.eventType === 'EXPIRED_CANCEL_RESTORE' ? 'color:#e67700;font-weight:700;' : 'color:#2f9e44;font-weight:700;';
+            return `<tr><td>${i+1}</td><td style="${typeColor}">${d.eventTypeLabel}</td><td><code>${d.pointKey || '-'}</code></td><td class="num">+${Number(d.amount).toLocaleString()}</td><td>${dt}</td></tr>`;
+        }).join('');
+        document.getElementById('cancelDetailTableBody').innerHTML = rows;
+    }
+}
+
 function openCancelModal(el) {
     const orderId = el.dataset.orderId;
     const orderNo = el.dataset.orderNo;
@@ -315,38 +333,49 @@ function openCancelModal(el) {
     document.getElementById('cancelModal').classList.add('open');
     document.getElementById('cancelTableBody').innerHTML = '<tr><td colspan="3" class="empty">로딩 중...</td></tr>';
     document.getElementById('cancelDetailTableBody').innerHTML = '<tr><td colspan="5" class="empty">로딩 중...</td></tr>';
+    document.getElementById('cancelDetailLabel').textContent = '';
+    _allCancelDetails = [];
 
     fetch('/admin/order-cancels?orderId=' + orderId)
         .then(r => r.json())
         .then(data => {
             // 취소 이력
             const cancels = data.cancels || [];
+            _allCancelDetails = data.pointDetails || [];
             if (!cancels.length) {
                 document.getElementById('cancelTableBody').innerHTML = '<tr><td colspan="3" class="empty">취소 내역이 없습니다.</td></tr>';
             } else {
                 const rows = cancels.map((c, i) => {
                     const dt = c.regDateTime ? c.regDateTime.replace('T', ' ').substring(0, 16) : '-';
-                    return `<tr><td>${i+1}</td><td class="num">${Number(c.cancelAmount).toLocaleString()}</td><td>${dt}</td></tr>`;
+                    return `<tr style="cursor:pointer;" onclick="selectCancelRow(this, ${c.id})">
+                        <td>${i+1}</td><td class="num">${Number(c.cancelAmount).toLocaleString()}</td><td>${dt}</td></tr>`;
                 }).join('');
                 document.getElementById('cancelTableBody').innerHTML = rows;
             }
-            // 포인트별 취소 상세
-            const details = data.pointDetails || [];
-            if (!details.length) {
-                document.getElementById('cancelDetailTableBody').innerHTML = '<tr><td colspan="5" class="empty">포인트 취소 상세가 없습니다.</td></tr>';
+            // 초기: 첫 번째 row 자동 선택
+            if (cancels.length === 1) {
+                renderCancelDetail(cancels[0].id);
+                document.getElementById('cancelDetailLabel').textContent = '';
+                const firstRow = document.querySelector('#cancelTableBody tr');
+                if (firstRow) firstRow.style.background = '#e7f5ff';
+            } else if (cancels.length > 1) {
+                document.getElementById('cancelDetailTableBody').innerHTML = '<tr><td colspan="5" class="empty">취소 이력 행을 클릭하세요.</td></tr>';
             } else {
-                const rows = details.map((d, i) => {
-                    const dt = d.regDateTime ? d.regDateTime.replace('T', ' ').substring(0, 16) : '-';
-                    const typeColor = d.eventType === 'EXPIRED_CANCEL_RESTORE' ? 'color:#e67700;font-weight:700;' : 'color:#2f9e44;font-weight:700;';
-                    return `<tr><td>${i+1}</td><td style="${typeColor}">${d.eventTypeLabel}</td><td><code>${d.pointKey || '-'}</code></td><td class="num">+${Number(d.amount).toLocaleString()}</td><td>${dt}</td></tr>`;
-                }).join('');
-                document.getElementById('cancelDetailTableBody').innerHTML = rows;
+                renderCancelDetail(null);
             }
         })
         .catch(() => {
             document.getElementById('cancelTableBody').innerHTML = '<tr><td colspan="3" class="empty">오류가 발생했습니다.</td></tr>';
             document.getElementById('cancelDetailTableBody').innerHTML = '<tr><td colspan="5" class="empty">오류가 발생했습니다.</td></tr>';
         });
+}
+
+function selectCancelRow(row, cancelId) {
+    // 선택된 row 하이라이트
+    document.querySelectorAll('#cancelTableBody tr').forEach(r => r.style.background = '');
+    row.style.background = '#e7f5ff';
+    document.getElementById('cancelDetailLabel').textContent = `— 취소 #${cancelId}`;
+    renderCancelDetail(cancelId);
 }
 
 function closeModal() {

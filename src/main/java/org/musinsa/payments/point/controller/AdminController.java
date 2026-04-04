@@ -202,6 +202,7 @@ public class AdminController {
             List<java.util.Map<String, Object>> pointDetails = new java.util.ArrayList<>();
             for (PointEvent e : useCancelEvents) {
                 java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("cancelId", e.getOrderCancel() != null ? e.getOrderCancel().getId() : null);
                 m.put("eventType", "USE_CANCEL");
                 m.put("eventTypeLabel", "사용취소");
                 m.put("pointKey", e.getPoint() != null ? e.getPoint().getPointKey() : null);
@@ -211,6 +212,7 @@ public class AdminController {
             }
             for (PointEvent e : autoRestoredEvents) {
                 java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("cancelId", e.getOrderCancel() != null ? e.getOrderCancel().getId() : null);
                 m.put("eventType", "AUTO_RESTORED");
                 m.put("eventTypeLabel", "만료 후 재지급");
                 m.put("pointKey", e.getPoint() != null ? e.getPoint().getPointKey() : null);

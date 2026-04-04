@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import lombok.extern.slf4j.Slf4j;
 import org.musinsa.payments.point.common.ApiResponse;
 import org.musinsa.payments.point.common.ResultCode;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -100,6 +102,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(resultCode.getHttpStatus())
                 .body(ApiResponse.error(resultCode, message));
+    }
+
+    /**
+     * 정적 리소스 없음 (favicon.ico 등)
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Void> handleNoResourceFoundException(NoResourceFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
     /**

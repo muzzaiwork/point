@@ -1,5 +1,4 @@
 package org.musinsa.payments.point.config;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.musinsa.payments.point.domain.*;
@@ -10,88 +9,53 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-
 /**
- * 애플리케이션 시작 시 1년치 더미 데이터를 삽입하는 초기화 컴포넌트.
- *
- * <p>{@code test} 프로파일에서는 동작하지 않는다 ({@code @Profile("!test")}).
- * 이미 데이터가 존재하면 초기화를 건너뛴다 (멱등성 보장).
- *
- * <p>생성 데이터:
- * <ul>
- *   <li>일반 유저 10명 ({@code seed01 ~ seed10}): 2025-01-01 ~ 2025-12-31, 하루 10건씩 10가지 시나리오 순환</li>
- *   <li>복잡 케이스 유저 3명 ({@code complex01 ~ complex03}): 만료 후 취소 → AUTO_RESTORED 반복 시나리오</li>
- * </ul>
- *
- * <p>시나리오 종류 (scenario 0~9):
- * <ol start="0">
- *   <li>단순 적립</li>
- *   <li>적립 후 즉시 적립 취소</li>
- *   <li>적립 후 사용</li>
- *   <li>사용 후 전액 취소</li>
- *   <li>사용 후 부분 취소</li>
- *   <li>만료 강제 처리 후 취소 → AUTO_RESTORED</li>
- *   <li>여러 건 적립 후 전액 사용</li>
- *   <li>수기 지급(MANUAL) + 사용</li>
- *   <li>복합: 적립 → 사용 → 사용 취소 → 재사용 → 만료 → 취소(AUTO_RESTORED)</li>
- *   <li>복합: 적립 → 사용 → 부분 취소 → 재사용 → 만료 → 취소(AUTO_RESTORED)</li>
- * </ol>
+ * 애플리케이션 시작 시 1년치 더미 데이터를 삽입한다.
+ * 날짜별로 하루 10건씩 적립/적립취소/만료/만료후취소/사용/사용취소 복합 케이스를 실제 서비스 로직으로 생성한다.
  */
 @Slf4j
 @Profile("!test")
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
-
     private final UserAccountRepository userAccountRepository;
     private final PointService pointService;
     private final PointRepository pointRepository;
     private final PointEventRepository pointEventRepository;
     private final OrderRepository orderRepository;
-
     // 시나리오 인덱스 순환용
     private final AtomicInteger scenarioIdx = new AtomicInteger(0);
-
     private final Random random = new Random(42); // 재현 가능한 시드
-
     /** 1,000원 단위 랜덤 금액 생성 */
     private long rand(int minThousands, int maxThousands) {
         return (long)(minThousands + random.nextInt(maxThousands - minThousands + 1)) * 1000L;
     }
-
     // 날짜별로 사용할 유저 목록 (10명)
     private static final String[] USER_IDS = {
         "seed01", "seed02", "seed03", "seed04", "seed05",
         "seed06", "seed07", "seed08", "seed09", "seed10"
     };
-
     // 복잡한 케이스 전용 유저 목록
     private static final String[] COMPLEX_USER_IDS = {
         "complex01", "complex02", "complex03"
     };
-
     @Override
     public void run(ApplicationArguments args) {
         if (userAccountRepository.findByUserId("seed01").isPresent()) {
             log.info("[DataInitializer] 이미 데이터가 존재합니다. 초기화를 건너뜁니다.");
             return;
         }
-
         log.info("[DataInitializer] 더미 데이터 삽입을 시작합니다.");
         long start = System.currentTimeMillis();
-
         // 유저 생성
         createUsers();
-
         // 2025-01-01 ~ 2025-12-31 날짜별 순회
         LocalDate startDate = LocalDate.of(2025, 1, 1);
         LocalDate endDate = LocalDate.of(2025, 12, 31);
-
         // 날짜별 적립 포인트키 추적 (만료/취소 시나리오에서 재사용)
         // key: userId, value: deque of (pointKey, orderNo, date)
         Map<String, Deque<PointRecord>> userPointQueue = new HashMap<>();
@@ -100,10 +64,8 @@ public class DataInitializer implements ApplicationRunner {
             userPointQueue.put(uid, new ArrayDeque<>());
             userOrderQueue.put(uid, new ArrayDeque<>());
         }
-
         int totalEvents = 0;
         int dayCount = 0;
-
         for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
             dayCount++;
             // 하루 10건: 유저별로 1건씩
@@ -112,9 +74,7 @@ public class DataInitializer implements ApplicationRunner {
                 // 시나리오를 날짜+유저 인덱스 기반으로 결정 (다양하게 분포)
                 int scenario = (dayCount + i) % 10;
                 int hour = 9 + i; // 09시~18시 분산
-
                 LocalDateTime dateTime = date.atTime(hour, 0, 0);
-
                 try {
                     int events = runScenario(scenario, userId, date, dateTime,
                             userPointQueue.get(userId), userOrderQueue.get(userId));
@@ -126,7 +86,6 @@ public class DataInitializer implements ApplicationRunner {
                 }
             }
         }
-
         // 복잡한 케이스 유저 생성 및 시나리오 실행 (3번 반복)
         createComplexUsers();
         LocalDateTime complexBase = LocalDate.of(2026, 1, 1).atTime(10, 0, 0);
@@ -139,25 +98,21 @@ public class DataInitializer implements ApplicationRunner {
                 DateTimeContext.clear();
             }
         }
-
         long elapsed = System.currentTimeMillis() - start;
         log.info("[DataInitializer] 시드 데이터 생성 완료. 총 이벤트: {}건, 소요시간: {}ms", totalEvents, elapsed);
     }
-
     /**
      * DateTimeContext를 step 순서에 따라 +분 단위로 증가시켜 설정한다.
      */
     private void setTime(LocalDateTime base, int stepMinutes) {
         DateTimeContext.set(base.plusMinutes(stepMinutes));
     }
-
     /**
      * 시나리오별 실행. 반환값은 생성된 이벤트 수.
      */
     private int runScenario(int scenario, String userId, LocalDate date, LocalDateTime dateTime,
                              Deque<PointRecord> pointQueue, Deque<PointRecord> orderQueue) {
         String dateSuffix = date.toString().replace("-", "");
-
         switch (scenario) {
             case 0 -> {
                 // 단순 적립
@@ -184,7 +139,6 @@ public class DataInitializer implements ApplicationRunner {
                 long use2 = rand(2, (int)(acc2 / 1000));
                 String pk = pointService.accumulate(userId, acc2, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
                 pointQueue.addLast(new PointRecord(pk, accOrderNo, date));
-
                 setTime(dateTime, 20);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix;
                 pointService.use(userId, useOrderNo, use2);
@@ -223,7 +177,6 @@ public class DataInitializer implements ApplicationRunner {
                 long cancel4 = rand(1, (int)(use4 / 1000));
                 String pk = pointService.accumulate(userId, acc4, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
                 pointQueue.addLast(new PointRecord(pk, accOrderNo, date));
-
                 setTime(dateTime, 20);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-P";
                 pointService.use(userId, useOrderNo, use4);
@@ -239,15 +192,12 @@ public class DataInitializer implements ApplicationRunner {
                 long acc5 = rand(5, 12);
                 long use5 = rand(2, (int)(acc5 / 1000) - 1);
                 String pk = pointService.accumulate(userId, acc5, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
-
                 setTime(dateTime, 20);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-E";
                 pointService.use(userId, useOrderNo, use5);
-
                 // 강제 만료 처리 (+40분)
                 setTime(dateTime, 40);
                 forceExpire(pk, dateTime.plusMinutes(40));
-
                 // 사용 취소 → AUTO_RESTORED 발생 (+60분)
                 setTime(dateTime, 60);
                 try {
@@ -268,7 +218,6 @@ public class DataInitializer implements ApplicationRunner {
                         "ACC-" + userId + "-" + dateSuffix + "-M2");
                 pointQueue.addLast(new PointRecord(pk1, null, date));
                 pointQueue.addLast(new PointRecord(pk2, null, date));
-
                 setTime(dateTime, 30);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-M";
                 pointService.use(userId, useOrderNo, use6);
@@ -282,7 +231,6 @@ public class DataInitializer implements ApplicationRunner {
                 long use7 = rand(1, (int)(acc7 / 1000));
                 String pk = pointService.accumulate(userId, acc7, PointSourceType.MANUAL, PointType.FREE, null, null);
                 pointQueue.addLast(new PointRecord(pk, null, date));
-
                 setTime(dateTime, 30);
                 String useOrderNo = "USE-" + userId + "-" + dateSuffix + "-MN";
                 try {
@@ -300,27 +248,22 @@ public class DataInitializer implements ApplicationRunner {
                 long use8b = rand(4, (int)(acc8 / 1000) - (int)(use8a / 1000));
                 String pk = pointService.accumulate(userId, acc8, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
                 pointQueue.addLast(new PointRecord(pk, accOrderNo, date));
-
                 // 1차 사용
                 setTime(dateTime, 10);
                 String useOrderNo1 = "USE-" + userId + "-" + dateSuffix + "-CX1";
                 pointService.use(userId, useOrderNo1, use8a);
-
                 // 1차 사용취소
                 setTime(dateTime, 20);
                 pointService.cancelUsage(useOrderNo1, use8a);
-
                 // 재사용
                 setTime(dateTime, 30);
                 String useOrderNo2 = "USE-" + userId + "-" + dateSuffix + "-CX2";
                 try {
                     pointService.use(userId, useOrderNo2, use8b);
                 } catch (Exception ignored) {}
-
                 // 강제 만료 (잔액 5000 남은 상태)
                 setTime(dateTime, 50);
                 forceExpire(pk, dateTime.plusMinutes(50));
-
                 // 만료 후 취소 → AUTO_RESTORED
                 setTime(dateTime, 70);
                 try {
@@ -337,27 +280,22 @@ public class DataInitializer implements ApplicationRunner {
                 long cancel9 = rand(1, (int)(use9a / 1000));
                 long use9b = rand(2, (int)(acc9 / 1000) - (int)(use9a / 1000) + (int)(cancel9 / 1000));
                 String pk = pointService.accumulate(userId, acc9, PointSourceType.ACCUMULATION, PointType.FREE, 30, accOrderNo);
-
                 // 1차 사용
                 setTime(dateTime, 15);
                 String useOrderNo1 = "USE-" + userId + "-" + dateSuffix + "-ER1";
                 pointService.use(userId, useOrderNo1, use9a);
-
                 // 부분 취소
                 setTime(dateTime, 25);
                 pointService.cancelUsage(useOrderNo1, cancel9);
-
                 // 재사용 (취소로 복원된 포인트 재사용)
                 setTime(dateTime, 35);
                 String useOrderNo2 = "USE-" + userId + "-" + dateSuffix + "-ER2";
                 try {
                     pointService.use(userId, useOrderNo2, use9b);
                 } catch (Exception ignored) {}
-
                 // 강제 만료
                 setTime(dateTime, 50);
                 forceExpire(pk, dateTime.plusMinutes(50));
-
                 // 만료 후 취소 → AUTO_RESTORED
                 setTime(dateTime, 65);
                 try {
@@ -370,7 +308,6 @@ public class DataInitializer implements ApplicationRunner {
             }
         }
     }
-
     /**
      * 가장 복잡한 케이스:
      * [1회~3회 반복]
@@ -389,10 +326,8 @@ public class DataInitializer implements ApplicationRunner {
         int totalEvents = 0;
         int minuteOffset = 0;
         String prevRestoredPointKey = null;
-
         for (int round = 1; round <= 3; round++) {
             String roundSuffix = "-R" + round;
-
             // 적립 (만료 30일) 또는 이전 라운드 재지급 포인트 사용
             setTime(base, minuteOffset);
             String accOrderNo = "ACC-" + userId + roundSuffix;
@@ -404,46 +339,39 @@ public class DataInitializer implements ApplicationRunner {
                 pk = prevRestoredPointKey;
             }
             minuteOffset += 10;
-
             // 사용 1차
             setTime(base, minuteOffset);
             String useOrder1 = "USE-" + userId + roundSuffix + "-U1";
             pointService.use(userId, useOrder1, 3000L);
             minuteOffset += 10;
             totalEvents += 1;
-
             // 사용 2차
             setTime(base, minuteOffset);
             String useOrder2 = "USE-" + userId + roundSuffix + "-U2";
             pointService.use(userId, useOrder2, 4000L);
             minuteOffset += 10;
             totalEvents += 1;
-
             // 사용취소 1차 (useOrder1 정상 취소)
             setTime(base, minuteOffset);
             pointService.cancelUsage(useOrder1, 3000L);
             minuteOffset += 10;
             totalEvents += 1;
-
             // 사용취소 2차 (useOrder2 정상 취소)
             setTime(base, minuteOffset);
             pointService.cancelUsage(useOrder2, 4000L);
             minuteOffset += 10;
             totalEvents += 1;
-
             // 재사용 3차
             setTime(base, minuteOffset);
             String useOrder3 = "USE-" + userId + roundSuffix + "-U3";
             pointService.use(userId, useOrder3, 5000L);
             minuteOffset += 10;
             totalEvents += 1;
-
             // 강제 만료 (잔액이 남은 상태)
             setTime(base, minuteOffset);
             forceExpire(pk, base.plusMinutes(minuteOffset));
             minuteOffset += 10;
             totalEvents += 1;
-
             // 사용취소 3차 (useOrder3) → 만료 후 취소 → AUTO_RESTORED 재지급 #1
             setTime(base, minuteOffset);
             String restored1Pk = null;
@@ -456,12 +384,10 @@ public class DataInitializer implements ApplicationRunner {
                 }
             } catch (Exception ignored) {}
             minuteOffset += 10;
-
             if (restored1Pk == null) {
                 prevRestoredPointKey = null;
                 continue;
             }
-
             // 재지급 #1에서 사용 4차
             setTime(base, minuteOffset);
             String useOrder4 = "USE-" + userId + roundSuffix + "-U4";
@@ -470,13 +396,11 @@ public class DataInitializer implements ApplicationRunner {
                 totalEvents += 1;
             } catch (Exception ignored) {}
             minuteOffset += 10;
-
             // 재지급 #1 강제 만료
             setTime(base, minuteOffset);
             forceExpire(restored1Pk, base.plusMinutes(minuteOffset));
             minuteOffset += 10;
             totalEvents += 1;
-
             // 사용취소 4차 (useOrder4) → 만료 후 취소 → AUTO_RESTORED 재지급 #2
             setTime(base, minuteOffset);
             String restoredPk = null;
@@ -489,13 +413,10 @@ public class DataInitializer implements ApplicationRunner {
                 }
             } catch (Exception ignored) {}
             minuteOffset += 10;
-
             prevRestoredPointKey = restoredPk;
         }
-
         return totalEvents;
     }
-
     /**
      * 포인트를 강제 만료 처리한다.
      */
@@ -517,7 +438,6 @@ public class DataInitializer implements ApplicationRunner {
             }
         });
     }
-
     private void createComplexUsers() {
         String[] names = {"복잡케이스1", "복잡케이스2", "복잡케이스3"};
         for (int i = 0; i < COMPLEX_USER_IDS.length; i++) {
@@ -530,7 +450,6 @@ public class DataInitializer implements ApplicationRunner {
         }
         log.info("[DataInitializer] 복잡케이스 유저 {}명 생성 완료.", COMPLEX_USER_IDS.length);
     }
-
     private void createUsers() {
         String[] names = {"김민준", "이서연", "박지훈", "최수아", "정도윤",
                           "강하은", "조민서", "윤지우", "장서준", "임나은"};
@@ -544,6 +463,35 @@ public class DataInitializer implements ApplicationRunner {
         }
         log.info("[DataInitializer] {}명 유저 생성 완료.", USER_IDS.length);
     }
-
     private record PointRecord(String pointKey, String orderNo, LocalDate date) {}
+}
+---
+package org.musinsa.payments.point.config;
+import java.time.LocalDateTime;
+/**
+ * 더미 데이터 생성 시 엔티티의 regDateTime을 특정 날짜로 고정하기 위한 ThreadLocal 컨텍스트.
+ */
+public class DateTimeContext {
+    private static final ThreadLocal<LocalDateTime> CURRENT_DATE_TIME = new ThreadLocal<>();
+    public static void set(LocalDateTime dateTime) {
+        CURRENT_DATE_TIME.set(dateTime);
+    }
+    public static LocalDateTime get() {
+        return CURRENT_DATE_TIME.get();
+    }
+    public static void clear() {
+        CURRENT_DATE_TIME.remove();
+    }
+}
+---
+package org.musinsa.payments.point;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+@EnableJpaAuditing
+@SpringBootApplication
+public class PointApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(PointApplication.class, args);
+    }
 }

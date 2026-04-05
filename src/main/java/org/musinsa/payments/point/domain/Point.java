@@ -2,7 +2,6 @@ package org.musinsa.payments.point.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import org.musinsa.payments.point.common.ResultCode;
 import org.musinsa.payments.point.exception.BusinessException;
 
@@ -10,68 +9,109 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 포인트 적립 내역 엔티티
+ * 포인트 적립 내역 엔티티.
+ *
+ * <p>포인트 1건의 생애주기(적립 → 사용 → 취소/만료)를 추적한다.
+ * 모든 상태 변경은 이 엔티티의 메서드를 통해서만 이루어진다.
+ *
+ * <p>주요 필드:
+ * <ul>
+ *   <li>{@code accumulatedPoint}: 최초 적립 금액 (불변)</li>
+ *   <li>{@code remainingPoint}: 현재 사용 가능한 잔액</li>
+ *   <li>{@code rootPointKey}: 전체 이력 추적을 위한 최상위 적립 건의 키</li>
+ *   <li>{@code originPointKey}: 만료 후 재적립 시 원본 적립 건의 키</li>
+ * </ul>
  */
 @Entity
 @Table(name = "point", indexes = {
         @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, pointSourceType, isExpired"),
-        @Index(name = "idx_point_accumulation_date", columnList = "regDateTime"),
-        @Index(name = "idx_point_expiry_date", columnList = "expiryDateTime, isExpired"),
-        @Index(name = "idx_point_order_no", columnList = "orderNo")
+        @Index(name = "idx_point_accumulation_date",   columnList = "regDateTime"),
+        @Index(name = "idx_point_expiry_date",         columnList = "expiryDateTime, isExpired"),
+        @Index(name = "idx_point_order_no",            columnList = "orderNo")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 public class Point extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** 사용자 ID */
     @Column(nullable = false)
     private String userId;
 
+    /** 적립 건 고유 키 (yyyyMMdd + 6자리 시퀀스, 예: 20260401000001) */
     @Column(nullable = false, unique = true)
-    private String pointKey; // 고유 키
+    private String pointKey;
 
-    private String orderNo; // 적립 근거 주문 번호 (선택 사항)
+    /** 적립 근거 주문 번호 (선택) */
+    private String orderNo;
 
+    /** 최초 적립 금액 (불변) */
     @Column(nullable = false)
-    private Long accumulatedPoint; // 최초 적립 금액
+    private Long accumulatedPoint;
 
+    /** 현재 사용 가능한 잔액 */
     @Column(nullable = false)
-    private Long remainingPoint; // 사용 가능한 잔액
+    private Long remainingPoint;
 
+    /** 포인트 타입 (FREE: 무료, PAID: 유료) */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PointType type; // 포인트 타입 (FREE, PAID)
+    private PointType type;
 
+    /** 만료 일시 (시분초 포함) */
     @Column(nullable = false)
     private LocalDateTime expiryDateTime;
 
+    /** 만료 날짜 (날짜 기반 인덱스/조회용) */
     @Column(nullable = false)
     private LocalDate expiryDate;
 
-    private boolean isCancelled; // 적립 취소 여부
+    /** 적립 취소 여부 */
+    private boolean isCancelled;
 
-    private boolean isExpired; // 만료 여부
+    /** 만료 처리 여부 */
+    private boolean isExpired;
 
-    private Long expiredPoint; // 만료 시점의 잔여 포인트 (만료된 금액)
+    /** 만료 시점의 잔여 포인트 (만료된 금액 기록용) */
+    private Long expiredPoint;
 
-    private Long usedPoint; // 누적 사용 금액
+    /** 누적 사용 금액 */
+    private Long usedPoint;
 
-    private Long usedCancelPoint; // 누적 사용 취소 금액
-
-    private String originPointKey; // 만료 후 취소로 인한 신규 적립 시 원천 적립 pointKey
-
-    private String rootPointKey; // 전체 이력 추적을 위한 최상위 적립 pointKey
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PointSourceType pointSourceType; // 포인트 적립 원천 타입
+    /** 누적 사용 취소(복구) 금액 */
+    private Long usedCancelPoint;
 
     /**
-     * 최초 저장 시 rootPointKey를 자기 자신으로 초기화한다.
+     * 만료 후 취소로 인한 신규 적립 시, 원본 적립 건의 pointKey.
+     * 일반 적립 건은 null.
+     */
+    private String originPointKey;
+
+    /**
+     * 전체 이력 추적을 위한 최상위 적립 건의 pointKey.
+     * 최초 적립 건은 자기 자신의 pointKey와 동일하며,
+     * 만료 후 재적립 시 원본의 rootPointKey를 상속한다.
+     */
+    private String rootPointKey;
+
+    /** 포인트 적립 원천 타입 (ACCUMULATION, MANUAL, AUTO_RESTORED) */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PointSourceType pointSourceType;
+
+    // =========================================================================
+    // 생명주기 콜백
+    // =========================================================================
+
+    /**
+     * 최초 저장 시 rootPointKey가 null이면 자기 자신의 pointKey로 초기화한다.
+     * 일반적으로 {@code doAccumulate()} 내부에서 직접 설정되므로,
+     * 이 콜백은 null인 경우에만 동작하는 fallback이다.
      */
     @PostPersist
     public void initRootPointKey() {
@@ -80,8 +120,13 @@ public class Point extends BaseEntity {
         }
     }
 
+    // =========================================================================
+    // 상태 변경 메서드
+    // =========================================================================
+
     /**
-     * 포인트를 사용한다 (잔액 차감)
+     * 포인트를 사용한다 (잔액 차감).
+     *
      * @param useAmount 사용 금액
      */
     public void use(Long useAmount) {
@@ -90,7 +135,9 @@ public class Point extends BaseEntity {
     }
 
     /**
-     * 포인트를 복구한다 (잔액 증가)
+     * 포인트를 복구한다 (잔액 증가).
+     * 사용 취소 시 호출된다.
+     *
      * @param restoreAmount 복구 금액
      */
     public void restore(Long restoreAmount) {
@@ -100,7 +147,12 @@ public class Point extends BaseEntity {
 
     /**
      * 적립을 취소한다.
-     * 이미 사용된 금액이 있는 경우 취소할 수 없다.
+     *
+     * <p>취소 불가 조건:
+     * <ul>
+     *   <li>{@code isCancelled == true}: 이미 취소된 건 → {@code ALREADY_CANCELLED} 예외</li>
+     *   <li>{@code remainingPoint != accumulatedPoint}: 일부라도 사용된 건 → {@code ALREADY_USED} 예외</li>
+     * </ul>
      */
     public void cancel() {
         if (this.isCancelled) {
@@ -114,8 +166,9 @@ public class Point extends BaseEntity {
     }
 
     /**
-     * 만료일을 설정한다.
-     * @param expiryDate 새로운 만료일
+     * 만료일을 변경한다.
+     *
+     * @param expiryDate 새로운 만료 일시
      */
     public void setExpiryDateTime(LocalDateTime expiryDate) {
         this.expiryDateTime = expiryDate;
@@ -123,7 +176,8 @@ public class Point extends BaseEntity {
     }
 
     /**
-     * 포인트를 만료시킨다.
+     * 포인트를 만료 처리한다.
+     * 만료 시점의 잔여 포인트를 기록하고 잔액을 0으로 설정한다.
      */
     public void expire() {
         this.expiredPoint = this.remainingPoint;
@@ -132,7 +186,9 @@ public class Point extends BaseEntity {
     }
 
     /**
-     * 현재 시점 기준으로 만료 여부를 확인한다. (레거시 지원용)
+     * 특정 시점 기준으로 만료 여부를 확인한다.
+     * {@code isExpired} 플래그가 true이거나, 기준 시간이 만료 일시를 지난 경우 만료로 판단한다.
+     *
      * @param now 기준 시간
      * @return 만료 여부
      */

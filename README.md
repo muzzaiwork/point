@@ -53,14 +53,15 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 - **Swagger UI**: [🔗 http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 - **API Base URL**: `http://localhost:8080/points`
 - **Admin UI**: [🔗 http://localhost:8080/admin](http://localhost:8080/admin)
-  - 사용자별 포인트 이력: `/admin/user-history?userId={userId}`
-  - 포인트 건별 이력: `/admin/point-history?pointKey={pointKey}`
-  - 일별 집계 (정산용): `/admin/daily?startDate={yyyy-MM-dd}&endDate={yyyy-MM-dd}`
+  - 사용자 계정: `/admin/accounts`
+  - 포인트 적립 내역: `/admin/points`
+  - 포인트 사용 내역: `/admin/orders`
+  - 통계 (일별/월별/연도별): `/admin/stats`
 
 ### 2.2 데이터베이스 접속 (H2 Console)
 애플리케이션 실행 후 웹 브라우저에서 아래 정보로 데이터베이스에 접속할 수 있습니다.
 - **H2 Console URL**: [🔗 http://localhost:8080/h2-console](http://localhost:8080/h2-console)
-- **JDBC URL**: `jdbc:h2:mem:billing`
+- **JDBC URL**: `jdbc:h2:file:./data/billing`
 - **User Name**: `sa`
 - **Password**: (입력 없음)
 
@@ -158,7 +159,7 @@ API 명세의 공통 사항 및 오류 코드 정의입니다.
 ```json
 {
   "code": "E0000",
-  "message": "포인트 적립 성공",
+  "message": "적립 성공",
   "data": {
     "pointKey": "20260331000001"
   }
@@ -195,8 +196,7 @@ sequenceDiagram
     Service->>UserEntity: accumulatePoint(amount)
     Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
     UserEntity-->>Service: 검증 완료 및 잔액 업데이트
-    Service->>PointEntity: Point 객체 생성 (pointSourceType 설정)
-    Note over PointEntity: @PostPersist로 rootPointId 자동 초기화
+    Service->>PointEntity: Point 객체 생성 (pointSourceType, rootPointKey 설정)
     Service->>DB: PointEvent(ACCUMULATE) 저장 & User 업데이트
     Service-->>Controller: pointKey 반환
     Controller-->>Client: 포인트 적립 성공 응답
@@ -205,7 +205,7 @@ sequenceDiagram
 > **💡 주요 로직 & 정책**
 > - 사용자 조회 시 **Pessimistic Lock**을 적용하여 동시 적립 요청에 의한 보유 한도 초과를 방지합니다.
 > - `UserAccount.accumulatePoint()` 내부에서 **1회 적립 한도** 및 **개인 최대 보유 한도**를 검증합니다.
-> - `Point` 엔티티 저장 후 `@PostPersist`를 통해 `rootPointId`가 자신의 `id`로 자동 초기화됩니다.
+> - `Point` 엔티티 생성 시 `rootPointKey`는 `doAccumulate()` 내부에서 직접 설정됩니다. `@PostPersist`는 `rootPointKey`가 null인 경우에만 동작하는 fallback입니다.
 > - `pointSourceType`이 `MANUAL`인 경우 수기 지급으로 식별되어 사용 시 최우선 차감됩니다.
 
 </details>
@@ -217,15 +217,15 @@ sequenceDiagram
 
 **POINT**
 
-| id | pointKey | userId | accumulatedPoint | remainingPoint | pointType | pointSourceType | isCancelled | expiredAt | rootPointId | originPointKey |
-|----|----------|--------|-----------------|----------------|-----------|-----------------|-------------|-----------|-------------|---------------|
-| 1 | 20260403000001 | user1 | 1000 | 1000 | FREE | ACCUMULATION | false | 2027-04-03 | 1 | null |
+| id | pointKey | userId | accumulatedPoint | remainingPoint | type | pointSourceType | isCancelled | expiryDateTime | rootPointKey | originPointKey |
+|----|----------|--------|-----------------|----------------|------|-----------------|-------------|----------------|--------------|---------------|
+| 1 | 20260403000001 | user1 | 1000 | 1000 | FREE | ACCUMULATION | false | 2027-04-03T23:59:59 | 20260403000001 | null |
 
 **POINT_EVENT**
 
-| id | pointId | orderNo | pointEventType | amount |
-|----|---------|---------|----------------|--------|
-| 1 | 1 | ORD001 | ACCUMULATE | 1000 |
+| id | point_accumulation_id | pointEventType | amount |
+|----|-----------------------|----------------|--------|
+| 1 | 1 | ACCUMULATE | 1000 |
 
 **USER_ACCOUNT**
 
@@ -265,7 +265,7 @@ sequenceDiagram
 ```json
 {
   "code": "E0000",
-  "message": "포인트 적립 취소 성공",
+  "message": "적립 취소 성공",
   "data": null
 }
 ```
@@ -302,7 +302,7 @@ sequenceDiagram
     DB-->>Service: UserAccount 객체 반환
     
     Service->>PointEntity: cancel()
-    Note over PointEntity: 1. isCancelled == true → ALREADY_CANCELLED 예외<br/>2. remainingPoint < accumulatedPoint → ALREADY_USED 예외<br/>3. isCancelled = true, remainingPoint = 0 처리
+    Note over PointEntity: 1. isCancelled == true → ALREADY_CANCELLED 예외<br/>2. remainingPoint ≠ accumulatedPoint → ALREADY_USED 예외 (부분 사용도 취소 불가)<br/>3. isCancelled = true, remainingPoint = 0 처리
     PointEntity-->>Service: 상태 업데이트 완료
 
     Service->>DB: PointEvent(ACCUMULATE_CANCEL) 저장
@@ -317,7 +317,7 @@ sequenceDiagram
 ```
 
 > **💡 주요 로직 & 정책**
-> - `Point.cancel()` 내부에서 `isCancelled == true`이면 **중복 취소 예외**, `remainingPoint < accumulatedPoint`이면 **이미 사용된 포인트 예외**를 발생시킵니다.
+> - `Point.cancel()` 내부에서 `isCancelled == true`이면 **중복 취소 예외**, `remainingPoint != accumulatedPoint`이면 **이미 사용된 포인트 예외**를 발생시킵니다. (부분 사용된 경우도 취소 불가)
 > - 취소 성공 시 `remainingPoint = 0`, `isCancelled = true`로 변경되며 `PointEvent(ACCUMULATE_CANCEL)`이 기록됩니다.
 > - `UserAccount`의 `accumulatedPoint`와 `remainingPoint`가 함께 차감됩니다.
 
@@ -335,10 +335,10 @@ sequenceDiagram
 | 1 | 20260403000001 | 1000 | ~~1000~~ → **0** | ~~false~~ → **true** |
 
 **POINT_EVENT** (기존 + 신규 추가)
-| id | pointId | orderNo | pointEventType | amount |
-|----|---------|---------|----------------|--------|
-| 1 | 1 | null | ACCUMULATE | 1000 |
-| 2 | 1 | null | ACCUMULATE_CANCEL | 1000 |
+| id | point_accumulation_id | pointEventType | amount |
+|----|-----------------------|----------------|--------|
+| 1 | 1 | ACCUMULATE | 1000 |
+| 2 | 1 | ACCUMULATE_CANCEL | 1000 |
 
 **USER_ACCOUNT** (변경)
 
@@ -372,9 +372,7 @@ sequenceDiagram
 
 **Response Body (`data`)**
 
-| 필드 | 타입 | 설명 |
-| :--- | :--- | :--- |
-| `pointKey` | String | 사용된 주문 번호 (`orderNo`) |
+없음 (`data: null`)
 
 **Sample Request**
 ```json
@@ -389,10 +387,8 @@ sequenceDiagram
 ```json
 {
   "code": "E0000",
-  "message": "포인트 사용 성공",
-  "data": {
-    "pointKey": "A1234"
-  }
+  "message": "사용 성공",
+  "data": null
 }
 ```
 
@@ -429,11 +425,12 @@ sequenceDiagram
     Service->>OrderEntity: Order 생성 (orderNo 식별자, type=PURCHASE, status=IN_PROGRESS)
     loop 포인트 사용 금액 소진 시까지
         Service->>PointEntity: use(subAmount)
+        Service->>DB: Point 저장
         Service->>UserEntity: usePoint(subAmount, type)
-        Service->>EventEntity: PointEvent(USE) 생성 (1원 단위 연결)
+        Service->>DB: PointEvent(USE) 저장
     end
-    Service->>DB: 모든 엔티티 저장 & User 업데이트
-    Service-->>Controller: 포인트 사용 성공(orderNo) 반환
+    Service->>DB: Order & User 업데이트
+    Service-->>Controller: 포인트 사용 성공 반환
 ```
 
 > **💡 주요 로직 & 정책**
@@ -519,7 +516,7 @@ sequenceDiagram
 ```json
 {
   "code": "E0000",
-  "message": "포인트 사용 취소 성공",
+  "message": "사용 취소 성공",
   "data": null
 }
 ```
@@ -554,7 +551,7 @@ sequenceDiagram
     Service->>DB: UserAccount 조회 (Pessimistic Lock, 동시 취소 방지)
 
     Service->>OrderEntity: cancel(cancelAmount)
-    Note over OrderEntity: orderedPoint 불변<br/>canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL<br/>초과 취소 시 예외 발생
+    Note over OrderEntity: orderedPoint 불변<br/>canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL<br/>부분 취소 시 PARTIAL_CANCEL<br/>초과 취소 시 예외 발생
 
     Service->>DB: OrderCancel 이력 저장
 
@@ -569,17 +566,18 @@ sequenceDiagram
             Service->>DB: PointEvent(USE_CANCEL) 저장
         else 만료된 적립 건
             Service->>UserEntity: cancelUsage(canCancelFromThis, type)
-            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointKey/rootPointId 상속, 만료일=2999-12-31)
-            Service->>DB: PointEvent(ACCUMULATE) 저장
+            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointKey/rootPointKey 상속, 만료일=2999-12-31)
+            Service->>DB: PointEvent(EXPIRED_CANCEL_RESTORE) 저장
         end
     end
 
-    Service->>Client: 취소 완료 응답
+    Service-->>Controller: 취소 완료
+    Controller-->>Client: 사용 취소 성공 응답
 ```
 
 > **💡 주요 로직 & 정책**
 > - `PointEvent(USE)` 이력을 **역순(LIFO)**으로 조회하여 가장 최근에 사용된 적립 건부터 순서대로 복구합니다.
-> - 복구 대상 적립 건이 **만료된 경우**, 원본 복구 대신 `AUTO_RESTORED` 타입의 신규 포인트를 생성하며 원본의 `rootPointId`를 상속합니다.
+> - 복구 대상 적립 건이 **만료된 경우**, 원본 복구 대신 `AUTO_RESTORED` 타입의 신규 포인트를 생성하며 원본의 `rootPointKey`를 상속합니다. 이 경우 `USE_CANCEL` 이벤트는 기록되지 않고 `EXPIRED_CANCEL_RESTORE` 이벤트만 기록됩니다.
 > - `Order.cancel()`에서 `canceledPoint`를 누적하며, 전액 취소 시 `TOTAL_CANCEL`, 부분 취소 시 `PARTIAL_CANCEL` 상태로 변경됩니다.
 > - `OrderCancel` 이력에 취소 금액과 일시가 별도 기록됩니다.
 
@@ -662,19 +660,19 @@ sequenceDiagram
 
 **POINT** (신규 생성 — 원본 복구 불가)
 
-| id | pointKey | remainingPoint | sourceType | originPointKey | rootPointId | expiryDate |
-|----|----------|----------------|------------|---------------|-------------|------------|
-| 5 | 20260403000005 | 300 | AUTO_RESTORED | 1 | 1 | 2999-12-31 |
+| id | pointKey | remainingPoint | pointSourceType | originPointKey | rootPointKey | expiryDate |
+|----|----------|----------------|-----------------|----------------|--------------|------------|
+| 5 | 20260403000005 | 300 | AUTO_RESTORED | (원본 pointKey) | (원본 rootPointKey) | 2999-12-31 |
 
 **POINT_EVENT** (신규 추가)
 
 | id | pointId | orderNo | pointEventType | amount |
 |----|---------|---------|----------------|--------|
-| 8 | 1 | B5678 | USE_CANCEL | 300 |
-| 9 | 5 | — | ACCUMULATE | 300 |
+| 8 | 5 | — | EXPIRED_CANCEL_RESTORE | 300 |
 
 > 💡 만료된 포인트 취소 시 원본 Point는 변경되지 않으며, `AUTO_RESTORED` 타입의 신규 Point가 생성됩니다.  
-> 신규 Point는 원본의 `rootPointId`를 상속하여 계보가 유지됩니다.
+> 만료 건은 `USE_CANCEL` 이벤트를 기록하지 않고 신규 Point에 `EXPIRED_CANCEL_RESTORE` 이벤트만 기록됩니다.  
+> 신규 Point는 원본의 `rootPointKey`를 상속하여 계보가 유지됩니다.
 
 </details>
 

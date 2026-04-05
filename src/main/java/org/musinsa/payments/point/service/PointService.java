@@ -118,7 +118,7 @@ public class PointService {
 
         // 2. 취소 처리 (이미 취소 여부 및 사용 여부 검증은 엔티티 내부에서 수행)
         //    - isCancelled == true → ALREADY_CANCELLED 예외
-        //    - remainingPoint < accumulatedPoint → ALREADY_USED 예외
+        //    - remainingPoint != accumulatedPoint → ALREADY_USED 예외 (부분 사용도 취소 불가)
         long amountToCancel = point.getRemainingPoint();
         point.cancel();
 

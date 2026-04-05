@@ -55,9 +55,11 @@ public class AdminController {
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String name,
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             Model model) {
 
-        PageRequest pageable = PageRequest.of(page, PAGE_SIZE, Sort.by("regDateTime").descending());
+        int pageSize = (size == 10 || size == 20 || size == 50 || size == 100) ? size : 10;
+        PageRequest pageable = PageRequest.of(page, pageSize, Sort.by("regDateTime").descending());
         Page<UserAccount> accounts = userAccountRepository.searchAccounts(
                 (userId != null && !userId.isBlank()) ? userId : null,
                 (name != null && !name.isBlank()) ? name : null,
@@ -75,6 +77,7 @@ public class AdminController {
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
+        model.addAttribute("pageSize", pageSize);
         return "admin/accounts";
     }
 
@@ -87,6 +90,7 @@ public class AdminController {
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             Model model) {
 
         String userIdParam = (userId != null && !userId.isBlank()) ? userId : null;
@@ -106,7 +110,8 @@ public class AdminController {
         LocalDate endDateParam = null;
         try { if (endDate != null && !endDate.isBlank()) endDateParam = LocalDate.parse(endDate); } catch (Exception ignored) {}
 
-        PageRequest pageable = PageRequest.of(page, PAGE_SIZE);
+        int pageSize = (size == 10 || size == 20 || size == 50 || size == 100) ? size : 10;
+        PageRequest pageable = PageRequest.of(page, pageSize);
         Page<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam, pageable);
 
         Map<Long, String> restoredPointKeyMap = new HashMap<>();
@@ -133,6 +138,7 @@ public class AdminController {
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
+        model.addAttribute("pageSize", pageSize);
         return "admin/points";
     }
 
@@ -194,12 +200,19 @@ public class AdminController {
                 Map<String, Long> m = statsMap.getOrDefault(period, new HashMap<>());
                 Map<String, Object> entry = new java.util.LinkedHashMap<>();
                 entry.put("date", period);
-                entry.put("ACCUMULATE", m.getOrDefault("ACCUMULATE", 0L));
-                entry.put("ACCUMULATE_CANCEL", m.getOrDefault("ACCUMULATE_CANCEL", 0L));
-                entry.put("USE", m.getOrDefault("USE", 0L));
-                entry.put("USE_CANCEL", m.getOrDefault("USE_CANCEL", 0L));
-                entry.put("EXPIRE", m.getOrDefault("EXPIRE", 0L));
-                entry.put("EXPIRED_CANCEL_RESTORE", m.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L));
+                long acc = m.getOrDefault("ACCUMULATE", 0L);
+                long accCan = m.getOrDefault("ACCUMULATE_CANCEL", 0L);
+                long use = m.getOrDefault("USE", 0L);
+                long useCan = m.getOrDefault("USE_CANCEL", 0L);
+                long exp = m.getOrDefault("EXPIRE", 0L);
+                long restore = m.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L);
+                entry.put("ACCUMULATE", acc);
+                entry.put("ACCUMULATE_CANCEL", accCan);
+                entry.put("USE", use);
+                entry.put("USE_CANCEL", useCan);
+                entry.put("EXPIRE", exp);
+                entry.put("EXPIRED_CANCEL_RESTORE", restore);
+                entry.put("SUM", acc - accCan - use + useCan - exp + restore);
                 statsList.add(entry);
             }
         } else if ("monthly".equals(unit)) {
@@ -219,12 +232,19 @@ public class AdminController {
                 Map<String, Long> m = statsMap.getOrDefault(period, new HashMap<>());
                 Map<String, Object> entry = new java.util.LinkedHashMap<>();
                 entry.put("date", period);
-                entry.put("ACCUMULATE", m.getOrDefault("ACCUMULATE", 0L));
-                entry.put("ACCUMULATE_CANCEL", m.getOrDefault("ACCUMULATE_CANCEL", 0L));
-                entry.put("USE", m.getOrDefault("USE", 0L));
-                entry.put("USE_CANCEL", m.getOrDefault("USE_CANCEL", 0L));
-                entry.put("EXPIRE", m.getOrDefault("EXPIRE", 0L));
-                entry.put("EXPIRED_CANCEL_RESTORE", m.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L));
+                long acc = m.getOrDefault("ACCUMULATE", 0L);
+                long accCan = m.getOrDefault("ACCUMULATE_CANCEL", 0L);
+                long use = m.getOrDefault("USE", 0L);
+                long useCan = m.getOrDefault("USE_CANCEL", 0L);
+                long exp = m.getOrDefault("EXPIRE", 0L);
+                long restore = m.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L);
+                entry.put("ACCUMULATE", acc);
+                entry.put("ACCUMULATE_CANCEL", accCan);
+                entry.put("USE", use);
+                entry.put("USE_CANCEL", useCan);
+                entry.put("EXPIRE", exp);
+                entry.put("EXPIRED_CANCEL_RESTORE", restore);
+                entry.put("SUM", acc - accCan - use + useCan - exp + restore);
                 statsList.add(entry);
             }
         } else {
@@ -241,12 +261,19 @@ public class AdminController {
                 Map<String, Long> dayMap = statsMap.getOrDefault(cursor, new HashMap<>());
                 Map<String, Object> entry = new java.util.LinkedHashMap<>();
                 entry.put("date", cursor.toString());
-                entry.put("ACCUMULATE", dayMap.getOrDefault("ACCUMULATE", 0L));
-                entry.put("ACCUMULATE_CANCEL", dayMap.getOrDefault("ACCUMULATE_CANCEL", 0L));
-                entry.put("USE", dayMap.getOrDefault("USE", 0L));
-                entry.put("USE_CANCEL", dayMap.getOrDefault("USE_CANCEL", 0L));
-                entry.put("EXPIRE", dayMap.getOrDefault("EXPIRE", 0L));
-                entry.put("EXPIRED_CANCEL_RESTORE", dayMap.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L));
+                long acc = dayMap.getOrDefault("ACCUMULATE", 0L);
+                long accCan = dayMap.getOrDefault("ACCUMULATE_CANCEL", 0L);
+                long use = dayMap.getOrDefault("USE", 0L);
+                long useCan = dayMap.getOrDefault("USE_CANCEL", 0L);
+                long exp = dayMap.getOrDefault("EXPIRE", 0L);
+                long restore = dayMap.getOrDefault("EXPIRED_CANCEL_RESTORE", 0L);
+                entry.put("ACCUMULATE", acc);
+                entry.put("ACCUMULATE_CANCEL", accCan);
+                entry.put("USE", use);
+                entry.put("USE_CANCEL", useCan);
+                entry.put("EXPIRE", exp);
+                entry.put("EXPIRED_CANCEL_RESTORE", restore);
+                entry.put("SUM", acc - accCan - use + useCan - exp + restore);
                 statsList.add(entry);
                 cursor = cursor.plusDays(1);
             }
@@ -259,6 +286,7 @@ public class AdminController {
         totals.put("USE_CANCEL", statsList.stream().mapToLong(r -> (Long) r.get("USE_CANCEL")).sum());
         totals.put("EXPIRE", statsList.stream().mapToLong(r -> (Long) r.get("EXPIRE")).sum());
         totals.put("EXPIRED_CANCEL_RESTORE", statsList.stream().mapToLong(r -> (Long) r.get("EXPIRED_CANCEL_RESTORE")).sum());
+        totals.put("SUM", statsList.stream().mapToLong(r -> (Long) r.get("SUM")).sum());
 
         model.addAttribute("statsList", statsList);
         model.addAttribute("totals", totals);
@@ -280,6 +308,7 @@ public class AdminController {
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
             Model model) {
 
         String userIdParam = (userId != null && !userId.isBlank()) ? userId : null;
@@ -294,7 +323,8 @@ public class AdminController {
         LocalDateTime endDateParam = null;
         try { if (endDate != null && !endDate.isBlank()) endDateParam = LocalDate.parse(endDate).atTime(23, 59, 59); } catch (Exception ignored) {}
 
-        PageRequest pageable = PageRequest.of(page, PAGE_SIZE);
+        int pageSize = (size == 10 || size == 20 || size == 50 || size == 100) ? size : 10;
+        PageRequest pageable = PageRequest.of(page, pageSize);
         Page<Order> orders = orderRepository.searchOrders(userIdParam, orderNoParam, typeParam, startDateParam, endDateParam, pageable);
 
         int totalPages = orders.getTotalPages();
@@ -311,6 +341,7 @@ public class AdminController {
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", startPage);
         model.addAttribute("endPage", endPage);
+        model.addAttribute("pageSize", pageSize);
         return "admin/orders";
     }
 

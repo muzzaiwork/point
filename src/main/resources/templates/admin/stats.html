@@ -48,6 +48,9 @@
         .th-use-cancel       { background: #7a5a1a; }
         .th-expire           { background: #4a2a7a; }
         .th-restored         { background: #7a1a4a; }
+        .th-sum              { background: #2a2a2a; }
+        .pos { color: #2f6b3e; }
+        .neg { color: #7b3030; }
     </style>
 </head>
 <body>
@@ -128,26 +131,29 @@
                     <th class="th-use-cancel">사용취소</th>
                     <th class="th-expire">만료</th>
                     <th class="th-restored">만료후취소재지급</th>
+                    <th class="th-sum">합계(SUM)</th>
                 </tr>
             </thead>
             <tbody>
                 <tr th:each="row : ${statsList}">
                     <td class="date-col" th:text="${row['date']}"></td>
-                    <td th:classappend="${row['ACCUMULATE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['ACCUMULATE'], 0, 'COMMA')}"></td>
-                    <td th:classappend="${row['ACCUMULATE_CANCEL'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['ACCUMULATE_CANCEL'], 0, 'COMMA')}"></td>
-                    <td th:classappend="${row['USE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['USE'], 0, 'COMMA')}"></td>
-                    <td th:classappend="${row['USE_CANCEL'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['USE_CANCEL'], 0, 'COMMA')}"></td>
-                    <td th:classappend="${row['EXPIRE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['EXPIRE'], 0, 'COMMA')}"></td>
-                    <td th:classappend="${row['EXPIRED_CANCEL_RESTORE'] == 0} ? 'zero'" th:text="${#numbers.formatInteger(row['EXPIRED_CANCEL_RESTORE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['ACCUMULATE'] == 0} ? 'zero' : 'pos'" th:text="${row['ACCUMULATE'] == 0} ? '0' : '+' + ${#numbers.formatInteger(row['ACCUMULATE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['ACCUMULATE_CANCEL'] == 0} ? 'zero' : 'neg'" th:text="${row['ACCUMULATE_CANCEL'] == 0} ? '0' : '-' + ${#numbers.formatInteger(row['ACCUMULATE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['USE'] == 0} ? 'zero' : 'neg'" th:text="${row['USE'] == 0} ? '0' : '-' + ${#numbers.formatInteger(row['USE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['USE_CANCEL'] == 0} ? 'zero' : 'pos'" th:text="${row['USE_CANCEL'] == 0} ? '0' : '+' + ${#numbers.formatInteger(row['USE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['EXPIRE'] == 0} ? 'zero' : 'neg'" th:text="${row['EXPIRE'] == 0} ? '0' : '-' + ${#numbers.formatInteger(row['EXPIRE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['EXPIRED_CANCEL_RESTORE'] == 0} ? 'zero' : 'pos'" th:text="${row['EXPIRED_CANCEL_RESTORE'] == 0} ? '0' : '+' + ${#numbers.formatInteger(row['EXPIRED_CANCEL_RESTORE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${row['SUM'] == 0} ? 'zero' : (${row['SUM'] > 0} ? 'pos' : 'neg')" th:text="${row['SUM'] == 0} ? '0' : (${row['SUM'] > 0} ? '+' + ${#numbers.formatInteger(row['SUM'], 0, 'COMMA')} : ${#numbers.formatInteger(row['SUM'], 0, 'COMMA')})"></td>
                 </tr>
                 <tr class="total-row">
                     <td class="date-col">합계</td>
-                    <td th:text="${#numbers.formatInteger(totals['ACCUMULATE'], 0, 'COMMA')}"></td>
-                    <td th:text="${#numbers.formatInteger(totals['ACCUMULATE_CANCEL'], 0, 'COMMA')}"></td>
-                    <td th:text="${#numbers.formatInteger(totals['USE'], 0, 'COMMA')}"></td>
-                    <td th:text="${#numbers.formatInteger(totals['USE_CANCEL'], 0, 'COMMA')}"></td>
-                    <td th:text="${#numbers.formatInteger(totals['EXPIRE'], 0, 'COMMA')}"></td>
-                    <td th:text="${#numbers.formatInteger(totals['EXPIRED_CANCEL_RESTORE'], 0, 'COMMA')}"></td>
+                    <td class="pos" th:text="'+' + ${#numbers.formatInteger(totals['ACCUMULATE'], 0, 'COMMA')}"></td>
+                    <td class="neg" th:text="'-' + ${#numbers.formatInteger(totals['ACCUMULATE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td class="neg" th:text="'-' + ${#numbers.formatInteger(totals['USE'], 0, 'COMMA')}"></td>
+                    <td class="pos" th:text="'+' + ${#numbers.formatInteger(totals['USE_CANCEL'], 0, 'COMMA')}"></td>
+                    <td class="neg" th:text="'-' + ${#numbers.formatInteger(totals['EXPIRE'], 0, 'COMMA')}"></td>
+                    <td class="pos" th:text="'+' + ${#numbers.formatInteger(totals['EXPIRED_CANCEL_RESTORE'], 0, 'COMMA')}"></td>
+                    <td th:classappend="${totals['SUM'] == 0} ? 'zero' : (${totals['SUM'] > 0} ? 'pos' : 'neg')" th:text="${totals['SUM'] == 0} ? '0' : (${totals['SUM'] > 0} ? '+' + ${#numbers.formatInteger(totals['SUM'], 0, 'COMMA')} : ${#numbers.formatInteger(totals['SUM'], 0, 'COMMA')})"></td>
                 </tr>
             </tbody>
         </table>

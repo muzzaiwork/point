@@ -37,7 +37,7 @@
         table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
         thead { background: #1a1a2e; color: #fff; }
         th { padding: 11px 14px; text-align: center; font-size: 0.8rem; font-weight: 500; white-space: nowrap; }
-        td { padding: 11px 14px; font-size: 0.84rem; border-bottom: 1px solid #f0f0f0; }
+        td { padding: 11px 14px; font-size: 0.84rem; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: #f8f9ff; }
         .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -164,7 +164,28 @@
         (페이지 <strong th:text="${currentPage + 1}">1</strong> / <strong th:text="${totalPages}">1</strong>)
     </div>
 
+    <!-- 페이지당 건수 -->
+    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-bottom:8px;">
+        <label style="font-size:0.78rem; font-weight:600; color:#555;">페이지당 건수</label>
+        <form method="get" action="/admin/points" style="display:inline;">
+            <input type="hidden" name="userId" th:value="${userId}"/>
+            <input type="hidden" name="status" th:value="${status}"/>
+            <input type="hidden" name="type" th:value="${type}"/>
+            <input type="hidden" name="sourceType" th:value="${sourceType}"/>
+            <input type="hidden" name="startDate" th:value="${startDate}"/>
+            <input type="hidden" name="endDate" th:value="${endDate}"/>
+            <input type="hidden" name="page" value="0"/>
+            <select name="size" onchange="this.form.submit()" style="padding:5px 10px; border:1px solid #d0d7de; border-radius:6px; font-size:0.82rem; background:#fafafa;">
+                <option value="10" th:selected="${pageSize == 10}">10건</option>
+                <option value="20" th:selected="${pageSize == 20}">20건</option>
+                <option value="50" th:selected="${pageSize == 50}">50건</option>
+                <option value="100" th:selected="${pageSize == 100}">100건</option>
+            </select>
+        </form>
+    </div>
+
     <!-- 테이블 -->
+    <div id="tableScroll" style="overflow-x: auto; border-radius: 8px; cursor: default;">
     <table>
         <thead>
             <tr>
@@ -233,22 +254,23 @@
             </tr>
         </tbody>
     </table>
+    </div>
 
     <!-- 페이지네이션 -->
     <div class="pagination" th:if="${totalPages > 1}">
         <a th:if="${currentPage > 0}"
-           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${currentPage - 1})}">이전</a>
+           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${currentPage - 1}, size=${pageSize})}">이전</a>
         <span th:if="${currentPage == 0}" class="disabled">이전</span>
 
         <th:block th:each="i : ${#numbers.sequence(startPage, endPage)}">
             <a th:if="${i != currentPage}"
-               th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${i})}"
+               th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${i}, size=${pageSize})}"
                th:text="${i + 1}"></a>
             <span th:if="${i == currentPage}" class="active" th:text="${i + 1}"></span>
         </th:block>
 
         <a th:if="${currentPage < totalPages - 1}"
-           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${currentPage + 1})}">다음</a>
+           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${currentPage + 1}, size=${pageSize})}">다음</a>
         <span th:if="${currentPage >= totalPages - 1}" class="disabled">다음</span>
     </div>
 </div>
@@ -261,6 +283,18 @@
             <button class="modal-close" id="modalClose">&times;</button>
         </div>
         <div class="modal-body">
+            <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                <label style="font-size:0.8rem;font-weight:600;color:#555;">이벤트 타입</label>
+                <select id="eventTypeFilter" style="padding:5px 10px;border:1px solid #d0d7de;border-radius:6px;font-size:0.82rem;background:#fafafa;">
+                    <option value="">전체</option>
+                    <option value="ACCUMULATE">적립</option>
+                    <option value="USE">사용</option>
+                    <option value="ACCUMULATE_CANCEL">적립취소</option>
+                    <option value="USE_CANCEL">사용취소</option>
+                    <option value="EXPIRE">만료</option>
+                    <option value="EXPIRED_CANCEL_RESTORE">만료후취소재적립</option>
+                </select>
+            </div>
             <div id="modalContent"><p class="modal-empty">로딩 중...</p></div>
         </div>
     </div>
@@ -316,14 +350,21 @@
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeRootKeyModal(); } });
 
+    let allModalEvents = [];
+
+    document.getElementById('eventTypeFilter').addEventListener('change', () => {
+        renderModal(allModalEvents);
+    });
+
     function openModal(pointKey) {
         document.getElementById('modalPointKey').textContent = pointKey;
         document.getElementById('modalContent').innerHTML = '<p class="modal-empty">로딩 중...</p>';
+        document.getElementById('eventTypeFilter').value = '';
         document.getElementById('eventModal').classList.add('open');
 
         fetch('/admin/point-events?pointKey=' + encodeURIComponent(pointKey))
             .then(r => r.json())
-            .then(data => renderModal(data))
+            .then(data => { allModalEvents = data; renderModal(data); })
             .catch(() => {
                 document.getElementById('modalContent').innerHTML = '<p class="modal-empty">데이터를 불러오지 못했습니다.</p>';
             });
@@ -397,13 +438,15 @@
     const negativeTypes = new Set(['USE', 'CANCEL', 'EXPIRE', 'ACCUMULATE_CANCEL']);
 
     function renderModal(events) {
-        if (!events || events.length === 0) {
+        const filterType = document.getElementById('eventTypeFilter').value;
+        const filtered = filterType ? events.filter(ev => ev.pointEventType === filterType) : events;
+        if (!filtered || filtered.length === 0) {
             document.getElementById('modalContent').innerHTML = '<p class="modal-empty">이벤트 이력이 없습니다.</p>';
             return;
         }
         let sum = 0;
         let html = '<table><thead><tr><th>#</th><th>이벤트 타입</th><th style="text-align:right">금액</th><th>주문번호</th><th>취소 ID</th><th style="text-align:right">취소 금액</th><th>발생일시</th></tr></thead><tbody>';
-        events.forEach((ev, i) => {
+        filtered.forEach((ev, i) => {
             const t = eventTypeLabel[ev.pointEventType] || { label: ev.pointEventType, cls: '' };
             const raw = Number(ev.amount);
             const isPositive = positiveTypes.has(ev.pointEventType);
@@ -436,6 +479,31 @@
         </tr></tfoot></table>`;
         document.getElementById('modalContent').innerHTML = html;
     }
+
+    // 가운데 휠 클릭으로 가로 스크롤
+    (function() {
+        const el = document.getElementById('tableScroll');
+        let isDown = false, startX, scrollLeft;
+        el.addEventListener('mousedown', e => {
+            if (e.button !== 1) return;
+            e.preventDefault();
+            isDown = true;
+            startX = e.pageX - el.offsetLeft;
+            scrollLeft = el.scrollLeft;
+            el.style.cursor = 'grabbing';
+        });
+        document.addEventListener('mouseup', e => {
+            if (e.button !== 1) return;
+            isDown = false;
+            el.style.cursor = 'default';
+        });
+        document.addEventListener('mousemove', e => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - el.offsetLeft;
+            el.scrollLeft = scrollLeft - (x - startX);
+        });
+    })();
 </script>
 </body>
 </html>

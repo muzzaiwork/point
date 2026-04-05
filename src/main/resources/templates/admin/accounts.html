@@ -97,6 +97,22 @@
         (페이지 <strong th:text="${currentPage + 1}">1</strong> / <strong th:text="${totalPages}">1</strong>)
     </div>
 
+    <!-- 페이지당 건수 -->
+    <div style="display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-bottom:8px;">
+        <label style="font-size:0.78rem; font-weight:600; color:#555;">페이지당 건수</label>
+        <form method="get" action="/admin/accounts" style="display:inline;">
+            <input type="hidden" name="userId" th:value="${userId}"/>
+            <input type="hidden" name="name" th:value="${name}"/>
+            <input type="hidden" name="page" value="0"/>
+            <select name="size" onchange="this.form.submit()" style="padding:5px 10px; border:1px solid #d0d7de; border-radius:6px; font-size:0.82rem; background:#fafafa;">
+                <option value="10" th:selected="${pageSize == 10}">10건</option>
+                <option value="20" th:selected="${pageSize == 20}">20건</option>
+                <option value="50" th:selected="${pageSize == 50}">50건</option>
+                <option value="100" th:selected="${pageSize == 100}">100건</option>
+            </select>
+        </form>
+    </div>
+
     <table>
         <thead>
             <tr>
@@ -148,18 +164,18 @@
     <!-- 페이지네이션 -->
     <div class="pagination" th:if="${totalPages > 1}">
         <a th:if="${currentPage > 0}"
-           th:href="@{/admin/accounts(userId=${userId}, name=${name}, page=${currentPage - 1})}">이전</a>
+           th:href="@{/admin/accounts(userId=${userId}, name=${name}, page=${currentPage - 1}, size=${pageSize})}">이전</a>
         <span th:if="${currentPage == 0}" class="disabled">이전</span>
 
         <th:block th:each="i : ${#numbers.sequence(startPage, endPage)}">
             <a th:if="${i != currentPage}"
-               th:href="@{/admin/accounts(userId=${userId}, name=${name}, page=${i})}"
+               th:href="@{/admin/accounts(userId=${userId}, name=${name}, page=${i}, size=${pageSize})}"
                th:text="${i + 1}"></a>
             <span th:if="${i == currentPage}" class="active" th:text="${i + 1}"></span>
         </th:block>
 
         <a th:if="${currentPage < totalPages - 1}"
-           th:href="@{/admin/accounts(userId=${userId}, name=${name}, page=${currentPage + 1})}">다음</a>
+           th:href="@{/admin/accounts(userId=${userId}, name=${name}, page=${currentPage + 1}, size=${pageSize})}">다음</a>
         <span th:if="${currentPage >= totalPages - 1}" class="disabled">다음</span>
     </div>
 </div>

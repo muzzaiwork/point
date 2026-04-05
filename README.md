@@ -680,6 +680,9 @@ sequenceDiagram
 
 ## 🛠 4. 시스템 설계 공통 사항
 
+<details>
+<summary>펼치기 / 접기</summary>
+
 ### 4.1 예외 처리 방식 (Exception Handling)
 - **`BusinessException`**: 비즈니스 로직 위반 시 발생하는 커스텀 예외입니다. `ResultCode`를 통해 에러 코드와 HTTP 상태 코드를 관리합니다.
 - **`GlobalExceptionHandler`**: `@RestControllerAdvice`를 사용하여 모든 예외를 전역적으로 포착하고, 일관된 `ApiResponse` 형식으로 응답합니다.
@@ -735,6 +738,8 @@ private void logResponse(ContentCachingResponseWrapper response, long duration) 
             status, duration, payload);
 }
 ```
+
+</details>
 
 ---
 

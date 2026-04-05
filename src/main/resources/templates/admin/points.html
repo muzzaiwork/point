@@ -150,6 +150,14 @@
                     <label>적립일자 종료</label>
                     <input type="date" name="endDate" th:value="${endDate}"/>
                 </div>
+                <div class="field">
+                    <label>pointKey</label>
+                    <input type="text" name="pointKey" th:value="${pointKey}" placeholder="포인트 키 입력"/>
+                </div>
+                <div class="field">
+                    <label>주문번호(orderNo)</label>
+                    <input type="text" name="orderNo" th:value="${orderNo}" placeholder="주문번호 입력"/>
+                </div>
                 <div class="field btn-row">
                     <button type="submit" class="btn btn-primary">조회</button>
                     <a href="/admin/points" class="btn btn-reset">초기화</a>
@@ -174,6 +182,8 @@
             <input type="hidden" name="sourceType" th:value="${sourceType}"/>
             <input type="hidden" name="startDate" th:value="${startDate}"/>
             <input type="hidden" name="endDate" th:value="${endDate}"/>
+            <input type="hidden" name="pointKey" th:value="${pointKey}"/>
+            <input type="hidden" name="orderNo" th:value="${orderNo}"/>
             <input type="hidden" name="page" value="0"/>
             <select name="size" onchange="this.form.submit()" style="padding:5px 10px; border:1px solid #d0d7de; border-radius:6px; font-size:0.82rem; background:#fafafa;">
                 <option value="10" th:selected="${pageSize == 10}">10건</option>
@@ -259,18 +269,18 @@
     <!-- 페이지네이션 -->
     <div class="pagination" th:if="${totalPages > 1}">
         <a th:if="${currentPage > 0}"
-           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${currentPage - 1}, size=${pageSize})}">이전</a>
+           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, orderNo=${orderNo}, page=${currentPage - 1}, size=${pageSize})}">이전</a>
         <span th:if="${currentPage == 0}" class="disabled">이전</span>
 
         <th:block th:each="i : ${#numbers.sequence(startPage, endPage)}">
             <a th:if="${i != currentPage}"
-               th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${i}, size=${pageSize})}"
+               th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, orderNo=${orderNo}, page=${i}, size=${pageSize})}"
                th:text="${i + 1}"></a>
             <span th:if="${i == currentPage}" class="active" th:text="${i + 1}"></span>
         </th:block>
 
         <a th:if="${currentPage < totalPages - 1}"
-           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, page=${currentPage + 1}, size=${pageSize})}">다음</a>
+           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, orderNo=${orderNo}, page=${currentPage + 1}, size=${pageSize})}">다음</a>
         <span th:if="${currentPage >= totalPages - 1}" class="disabled">다음</span>
     </div>
 </div>

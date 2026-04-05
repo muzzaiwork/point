@@ -89,6 +89,8 @@ public class AdminController {
             @RequestParam(required = false) String sourceType,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String pointKey,
+            @RequestParam(required = false) String orderNo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Model model) {
@@ -110,9 +112,24 @@ public class AdminController {
         LocalDate endDateParam = null;
         try { if (endDate != null && !endDate.isBlank()) endDateParam = LocalDate.parse(endDate); } catch (Exception ignored) {}
 
+        String pointKeyParam = (pointKey != null && !pointKey.isBlank()) ? pointKey : null;
+
+        // orderNo 입력 시 해당 주문의 사용/취소와 연관된 pointKey 목록 추출
+        java.util.Set<String> pointKeySetParam = null;
+        if (orderNo != null && !orderNo.isBlank()) {
+            java.util.Optional<org.musinsa.payments.point.domain.Order> orderOpt = orderRepository.findByOrderNo(orderNo.trim());
+            if (orderOpt.isPresent()) {
+                pointKeySetParam = pointEventRepository.findByOrder(orderOpt.get()).stream()
+                        .map(pe -> pe.getPoint().getPointKey())
+                        .collect(java.util.stream.Collectors.toSet());
+            } else {
+                pointKeySetParam = java.util.Collections.emptySet();
+            }
+        }
+
         int pageSize = (size == 10 || size == 20 || size == 50 || size == 100) ? size : 10;
         PageRequest pageable = PageRequest.of(page, pageSize);
-        Page<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam, pageable);
+        Page<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam, pointKeyParam, pointKeySetParam, pageable);
 
         Map<Long, String> restoredPointKeyMap = new HashMap<>();
         for (Point p : points) {
@@ -134,6 +151,8 @@ public class AdminController {
         model.addAttribute("sourceType", sourceType);
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
+        model.addAttribute("pointKey", pointKey);
+        model.addAttribute("orderNo", orderNo);
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", totalPages);
         model.addAttribute("startPage", startPage);

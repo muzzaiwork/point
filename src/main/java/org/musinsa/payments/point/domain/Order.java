@@ -18,10 +18,11 @@ import org.musinsa.payments.point.exception.BusinessException;
  * </pre>
  */
 @Entity
-@Table(name = "`order`", indexes = {
-        @Index(name = "idx_order_user_id_usage_date", columnList = "userId, regDateTime"),
-        @Index(name = "idx_order_usage_date",         columnList = "regDateTime"),
-        @Index(name = "idx_order_order_no",           columnList = "orderNo")
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_order_user_id",  columnList = "userId"),
+        @Index(name = "idx_order_reg_date_time", columnList = "regDateTime"),
+        @Index(name = "idx_order_reg_date",      columnList = "regDate"),
+        @Index(name = "idx_order_order_no",      columnList = "orderNo")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

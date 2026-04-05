@@ -24,10 +24,11 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "point", indexes = {
-        @Index(name = "idx_point_user_id_expiry_date", columnList = "userId, expiryDateTime, pointSourceType, isExpired"),
-        @Index(name = "idx_point_accumulation_date",   columnList = "regDateTime"),
-        @Index(name = "idx_point_expiry_date",         columnList = "expiryDateTime, isExpired"),
-        @Index(name = "idx_point_order_no",            columnList = "orderNo")
+        @Index(name = "idx_point_user_id",       columnList = "userId"),
+        @Index(name = "idx_point_expiry_date",   columnList = "expiryDateTime"),
+        @Index(name = "idx_point_reg_date_time", columnList = "regDateTime"),
+        @Index(name = "idx_point_reg_date",      columnList = "regDate"),
+        @Index(name = "idx_point_order_no",      columnList = "orderNo")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

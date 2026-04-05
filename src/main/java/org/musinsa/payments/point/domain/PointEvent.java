@@ -21,7 +21,10 @@ import lombok.*;
 @Entity
 @Table(name = "point_detail", indexes = {
         @Index(name = "idx_pd_order_id",              columnList = "order_id"),
-        @Index(name = "idx_pd_point_accumulation_id", columnList = "point_accumulation_id")
+        @Index(name = "idx_pd_point_accumulation_id", columnList = "point_accumulation_id"),
+        @Index(name = "idx_pd_order_cancel_id",       columnList = "order_cancel_id"),
+        @Index(name = "idx_pd_reg_date_time",         columnList = "regDateTime"),
+        @Index(name = "idx_pd_reg_date",              columnList = "regDate")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

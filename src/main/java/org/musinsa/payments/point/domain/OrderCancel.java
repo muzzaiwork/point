@@ -14,7 +14,9 @@ import lombok.*;
  */
 @Entity
 @Table(name = "order_cancel", indexes = {
-        @Index(name = "idx_order_cancel_order_id", columnList = "order_id")
+        @Index(name = "idx_order_cancel_order_id",       columnList = "order_id"),
+        @Index(name = "idx_order_cancel_reg_date_time", columnList = "regDateTime"),
+        @Index(name = "idx_order_cancel_reg_date",      columnList = "regDate")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

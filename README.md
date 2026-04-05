@@ -763,7 +763,7 @@ private void logResponse(ContentCachingResponseWrapper response, long duration) 
 Admin UI는 포인트 시스템의 데이터를 조회하고 모니터링할 수 있는 관리자 전용 화면입니다.
 
 - **접속 URL**: [🔗 http://localhost:8080/admin](http://localhost:8080/admin)
-- **상세 기획 문서**: [📄 Admin 기획서 보기](docs/Admin%20기획서.md)
+- **상세 화면 설명 문서**: [📄 Admin 화면 설명 보기](docs/Admin%20화면%20설명.md)
 
 ### 주요 메뉴
 

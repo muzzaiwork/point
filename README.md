@@ -767,18 +767,19 @@ Admin UI는 포인트 시스템의 데이터를 조회하고 모니터링할 수
 
 ### 대표 케이스별 바로가기
 
+> 각 userId는 날짜마다 다른 시나리오를 순환 실행하므로, 아래 URL은 시나리오 특성에 맞는 필터 조건으로 구성되어 있습니다.
+
 | 케이스 | 설명 | URL |
 |--------|------|-----|
-| 단순 적립 | 적립만 있는 기본 케이스 | [seed01 적립내역](http://localhost:8080/admin/points?userId=seed01&status=ACTIVE) |
-| 적립 후 즉시 적립취소 | 적립 후 바로 취소 | [seed02 취소내역](http://localhost:8080/admin/points?userId=seed02&status=CANCELED) |
-| 적립 후 사용 | 적립 후 사용까지 이어진 케이스 | [seed03 적립](http://localhost:8080/admin/points?userId=seed03) / [seed03 사용](http://localhost:8080/admin/orders?userId=seed03) |
-| 사용 후 전액 취소 | 사용 후 전액 USE_CANCEL | [seed04 취소](http://localhost:8080/admin/orders?userId=seed04&type=USE_CANCEL) |
-| 사용 후 부분 취소 | 사용 후 일부만 취소 | [seed05 사용내역](http://localhost:8080/admin/orders?userId=seed05) |
-| 만료 후 취소 → AUTO_RESTORED | 만료 포인트 취소 시 재지급 발생 | [seed06 만료](http://localhost:8080/admin/points?userId=seed06&status=EXPIRED) / [seed06 재지급](http://localhost:8080/admin/points?userId=seed06&type=AUTO_RESTORED) |
-| 여러 건 적립 후 전액 사용 | 2건 적립 후 한 번에 사용 | [seed07 적립](http://localhost:8080/admin/points?userId=seed07) / [seed07 사용](http://localhost:8080/admin/orders?userId=seed07) |
-| 수기 지급(MANUAL) + 사용 | 관리자 수기 지급 후 사용 | [seed08 수기지급](http://localhost:8080/admin/points?userId=seed08&sourceType=MANUAL) |
-| 복합 케이스 | 적립→사용→취소→재사용→만료→AUTO_RESTORED | [seed09 적립](http://localhost:8080/admin/points?userId=seed09) / [seed09 사용](http://localhost:8080/admin/orders?userId=seed09) |
-| 최고 복잡도 케이스 | AUTO_RESTORED 체인 3라운드 반복 | [complex01 적립](http://localhost:8080/admin/points?userId=complex01) / [complex01 재지급](http://localhost:8080/admin/points?userId=complex01&type=AUTO_RESTORED) |
+| 단순 적립 (ACTIVE) | 사용·취소 없이 적립만 된 포인트 | [ACTIVE 포인트 전체](http://localhost:8080/admin/points?status=ACTIVE) |
+| 적립취소 (CANCELED) | 적립 후 취소된 포인트 | [CANCELED 포인트 전체](http://localhost:8080/admin/points?status=CANCELED) |
+| 적립 후 사용 (USED) | 사용까지 완료된 포인트 | [USED 포인트 전체](http://localhost:8080/admin/points?status=USED) |
+| 사용 후 전액 취소 | 사용 후 전액 USE_CANCEL된 주문 | [USE_CANCEL 주문 전체](http://localhost:8080/admin/orders?type=USE_CANCEL) |
+| 사용 후 부분 취소 | 부분 취소가 발생한 주문 | [PARTIAL_CANCEL 주문 전체](http://localhost:8080/admin/orders?type=PARTIAL_CANCEL) |
+| 만료 포인트 | 만료 처리된 포인트 | [EXPIRED 포인트 전체](http://localhost:8080/admin/points?status=EXPIRED) |
+| AUTO_RESTORED (재지급) | 만료 후 취소 시 자동 재지급된 포인트 | [AUTO_RESTORED 포인트 전체](http://localhost:8080/admin/points?type=AUTO_RESTORED) |
+| 수기 지급 (MANUAL) | 관리자 수기 지급 포인트 | [MANUAL 포인트 전체](http://localhost:8080/admin/points?sourceType=MANUAL) |
+| 복합 케이스 (complex01) | AUTO_RESTORED 체인 3라운드 반복 | [complex01 적립](http://localhost:8080/admin/points?userId=complex01) / [complex01 재지급](http://localhost:8080/admin/points?userId=complex01&type=AUTO_RESTORED) |
 | 통계 (2025년 월별) | 월별 집계 통계 | [월별 통계](http://localhost:8080/admin/stats?unit=monthly&startMonth=2025-01&endMonth=2025-12) |
 | 사용자 계정 전체 | 전체 사용자 목록 | [사용자 계정](http://localhost:8080/admin/accounts) |
 

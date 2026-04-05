@@ -765,14 +765,22 @@ Admin UI는 포인트 시스템의 데이터를 조회하고 모니터링할 수
 - **접속 URL**: [🔗 http://localhost:8080/admin](http://localhost:8080/admin)
 - **상세 화면 설명 문서**: [📄 Admin 화면 설명 보기](docs/Admin%20화면%20설명.md)
 
-### 주요 메뉴
+### 대표 케이스별 바로가기
 
-| 메뉴 | URL | 설명 |
-|------|-----|------|
-| 사용자 계정 | `/admin/accounts` | 사용자별 포인트 잔액 및 한도 조회, 이벤트 이력 모달 |
-| 포인트 적립 내역 | `/admin/points` | 적립 건별 상세 내역 조회, 연관 포인트 이력 모달 |
-| 포인트 사용 내역 | `/admin/orders` | 사용/취소 내역 조회 |
-| 통계 | `/admin/stats` | 일별/월별/연도별 집계 통계 조회 |
+| 케이스 | 설명 | URL |
+|--------|------|-----|
+| 단순 적립 | 적립만 있는 기본 케이스 | [seed01 적립내역](http://localhost:8080/admin/points?userId=seed01&status=ACTIVE) |
+| 적립 후 즉시 적립취소 | 적립 후 바로 취소 | [seed02 취소내역](http://localhost:8080/admin/points?userId=seed02&status=CANCELED) |
+| 적립 후 사용 | 적립 후 사용까지 이어진 케이스 | [seed03 적립](http://localhost:8080/admin/points?userId=seed03) / [seed03 사용](http://localhost:8080/admin/orders?userId=seed03) |
+| 사용 후 전액 취소 | 사용 후 전액 USE_CANCEL | [seed04 취소](http://localhost:8080/admin/orders?userId=seed04&type=USE_CANCEL) |
+| 사용 후 부분 취소 | 사용 후 일부만 취소 | [seed05 사용내역](http://localhost:8080/admin/orders?userId=seed05) |
+| 만료 후 취소 → AUTO_RESTORED | 만료 포인트 취소 시 재지급 발생 | [seed06 만료](http://localhost:8080/admin/points?userId=seed06&status=EXPIRED) / [seed06 재지급](http://localhost:8080/admin/points?userId=seed06&type=AUTO_RESTORED) |
+| 여러 건 적립 후 전액 사용 | 2건 적립 후 한 번에 사용 | [seed07 적립](http://localhost:8080/admin/points?userId=seed07) / [seed07 사용](http://localhost:8080/admin/orders?userId=seed07) |
+| 수기 지급(MANUAL) + 사용 | 관리자 수기 지급 후 사용 | [seed08 수기지급](http://localhost:8080/admin/points?userId=seed08&sourceType=MANUAL) |
+| 복합 케이스 | 적립→사용→취소→재사용→만료→AUTO_RESTORED | [seed09 적립](http://localhost:8080/admin/points?userId=seed09) / [seed09 사용](http://localhost:8080/admin/orders?userId=seed09) |
+| 최고 복잡도 케이스 | AUTO_RESTORED 체인 3라운드 반복 | [complex01 적립](http://localhost:8080/admin/points?userId=complex01) / [complex01 재지급](http://localhost:8080/admin/points?userId=complex01&type=AUTO_RESTORED) |
+| 통계 (2025년 월별) | 월별 집계 통계 | [월별 통계](http://localhost:8080/admin/stats?unit=monthly&startMonth=2025-01&endMonth=2025-12) |
+| 사용자 계정 전체 | 전체 사용자 목록 | [사용자 계정](http://localhost:8080/admin/accounts) |
 
 ---
 

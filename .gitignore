@@ -34,3 +34,8 @@ out/
 ### Operating System ###
 .DS_Store
 Thumbs.db
+
+### H2 Database ###
+data/billing.mv.db
+data/billing.lock.db
+data/billing.trace.db

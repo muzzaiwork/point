@@ -681,9 +681,7 @@ sequenceDiagram
 ## 🛠 4. 시스템 설계 공통 사항
 
 <details>
-<summary>펼치기 / 접기</summary>
-
-### 4.1 예외 처리 방식 (Exception Handling)
+<summary>4.1 예외 처리 방식 (Exception Handling)</summary>
 - **`BusinessException`**: 비즈니스 로직 위반 시 발생하는 커스텀 예외입니다. `ResultCode`를 통해 에러 코드와 HTTP 상태 코드를 관리합니다.
 - **`GlobalExceptionHandler`**: `@RestControllerAdvice`를 사용하여 모든 예외를 전역적으로 포착하고, 일관된 `ApiResponse` 형식으로 응답합니다.
   - 예상치 못한 서버 오류는 `500 Internal Server Error`로 처리하며 보안을 위해 상세 에러는 로그에만 남깁니다.
@@ -701,7 +699,10 @@ public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessExcepti
 }
 ```
 
-### 4.2 유효성 검증 방식 (Validation)
+</details>
+
+<details>
+<summary>4.2 유효성 검증 방식 (Validation)</summary>
 - **DTO 레벨 검증**: Jakarta Bean Validation(`@NotBlank`, `@Min`, `@NotNull` 등)을 사용하여 API 입력 단계에서 1차 검증을 수행합니다.
 - **도메인 레벨 검증**: 엔티티 내부에서 비즈니스 규칙(예: 보유 한도 초과, 사용 금액 초과 등)을 직접 검증하여 데이터의 정합성을 보장합니다.
 
@@ -725,7 +726,10 @@ public void accumulatePoint(Long amount, PointType type) {
 }
 ```
 
-### 4.3 로깅 및 추적 방식 (Logging & Trace)
+</details>
+
+<details>
+<summary>4.3 로깅 및 추적 방식 (Logging & Trace)</summary>
 - **`ApiLoggingFilter`**: 모든 API의 요청(Method, URI, Body)과 응답(Status, Duration, Body)을 자동으로 로깅하여 이슈 발생 시 추적성을 확보합니다.
 - **식별 키 기반 추적**: `pointKey`를 통해 적립-사용-취소로 이어지는 전체 라이프사이클을 추적할 수 있습니다.
 

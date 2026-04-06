@@ -35,6 +35,9 @@ out/
 .DS_Store
 Thumbs.db
 
+### Custom ###
+docs/find_cases.sql
+
 ### H2 Database ###
 data/billing.mv.db
 data/billing.lock.db

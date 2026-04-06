@@ -90,6 +90,7 @@ public class AdminController {
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String pointKey,
+            @RequestParam(required = false) String rootPointKey,
             @RequestParam(required = false) String orderNo,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -113,6 +114,7 @@ public class AdminController {
         try { if (endDate != null && !endDate.isBlank()) endDateParam = LocalDate.parse(endDate); } catch (Exception ignored) {}
 
         String pointKeyParam = (pointKey != null && !pointKey.isBlank()) ? pointKey : null;
+        String rootPointKeyParam = (rootPointKey != null && !rootPointKey.isBlank()) ? rootPointKey : null;
 
         // orderNo 입력 시 해당 주문의 사용/취소와 연관된 pointKey 목록 추출
         java.util.Set<String> pointKeySetParam = null;
@@ -129,7 +131,7 @@ public class AdminController {
 
         int pageSize = (size == 10 || size == 20 || size == 50 || size == 100) ? size : 10;
         PageRequest pageable = PageRequest.of(page, pageSize);
-        Page<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam, pointKeyParam, pointKeySetParam, pageable);
+        Page<Point> points = pointRepository.searchPoints(userIdParam, cancelledParam, typeParam, sourceTypeParam, startDateParam, endDateParam, pointKeyParam, rootPointKeyParam, pointKeySetParam, pageable);
 
         Map<Long, String> restoredPointKeyMap = new HashMap<>();
         for (Point p : points) {
@@ -152,6 +154,7 @@ public class AdminController {
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
         model.addAttribute("pointKey", pointKey);
+        model.addAttribute("rootPointKey", rootPointKey);
         model.addAttribute("orderNo", orderNo);
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", totalPages);
@@ -456,6 +459,7 @@ public class AdminController {
             m.put("id", e.getId());
             m.put("pointEventType", e.getPointEventType().name());
             m.put("amount", e.getAmount());
+            m.put("orderId", e.getOrder() != null ? e.getOrder().getId() : null);
             m.put("orderNo", e.getOrder() != null ? e.getOrder().getOrderNo() : null);
             m.put("orderCancelId", e.getOrderCancel() != null ? e.getOrderCancel().getId() : null);
             m.put("cancelAmount", e.getOrderCancel() != null ? e.getOrderCancel().getCancelAmount() : null);

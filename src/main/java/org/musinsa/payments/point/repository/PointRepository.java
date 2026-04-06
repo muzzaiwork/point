@@ -74,17 +74,19 @@ public interface PointRepository extends JpaRepository<Point, Long> {
            "(:startDate IS NULL OR p.regDate >= :startDate) AND " +
            "(:endDate IS NULL OR p.regDate <= :endDate) AND " +
            "(:pointKey IS NULL OR p.pointKey = :pointKey) AND " +
+           "(:rootPointKey IS NULL OR p.rootPointKey = :rootPointKey) AND " +
            "(:#{#pointKeySet == null} = true OR p.pointKey IN :pointKeySet) " +
            "ORDER BY p.id DESC")
     Page<Point> searchPoints(
-            @Param("userId")      String userId,
-            @Param("cancelled")   Boolean cancelled,
-            @Param("type")        PointType type,
-            @Param("sourceType")  PointSourceType sourceType,
-            @Param("startDate")   LocalDate startDate,
-            @Param("endDate")     LocalDate endDate,
-            @Param("pointKey")    String pointKey,
-            @Param("pointKeySet") java.util.Set<String> pointKeySet,
+            @Param("userId")        String userId,
+            @Param("cancelled")     Boolean cancelled,
+            @Param("type")          PointType type,
+            @Param("sourceType")    PointSourceType sourceType,
+            @Param("startDate")     LocalDate startDate,
+            @Param("endDate")       LocalDate endDate,
+            @Param("pointKey")      String pointKey,
+            @Param("rootPointKey")  String rootPointKey,
+            @Param("pointKeySet")   java.util.Set<String> pointKeySet,
             Pageable pageable
     );
 }

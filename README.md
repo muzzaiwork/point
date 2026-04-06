@@ -771,11 +771,12 @@ Admin UI는 포인트 시스템의 데이터를 조회하고 모니터링할 수
 
 | # | 케이스 | 설명 | URL |
 |---|--------|------|-----|
-| 1 | 단순 적립, 미사용 | 적립만 되고 사용·취소·만료 이력이 없는 pointKey | [20260405000876](http://localhost:8080/admin/points?pointKey=20260405000876) |
-| 2 | 사용 후 전액 사용취소로 원복 | 사용됐다가 USE_CANCEL로 잔액이 원복된 pointKey | [20260405000924](http://localhost:8080/admin/points?pointKey=20260405000924) |
-| 3 | 만료된 pointKey | EXPIRE 이벤트가 기록된 만료 포인트 | [20260405000005](http://localhost:8080/admin/points?pointKey=20260405000005) |
-| 4 | 만료 후 재지급 (AUTO_RESTORED) | 만료 후 사용취소로 AUTO_RESTORED 재지급된 pointKey | [20260405000006](http://localhost:8080/admin/points?pointKey=20260405000006) |
-| 5 | 재지급이 여러 번 발생한 rootPointKey | AUTO_RESTORED가 6회 반복된 체인 | [20260405004628](http://localhost:8080/admin/points?pointKey=20260405004628) |
+| 1 | 단순 적립, 미사용 | 적립만 되고 사용·취소·만료 이력이 없는 pointKey | [20260406000876](http://localhost:8080/admin/points?pointKey=20260406000876) |
+| 2 | 사용 후 사용취소로 원복 | 일부 사용됐다가 USE_CANCEL로 잔액이 원복된 pointKey | [20260406000924](http://localhost:8080/admin/points?pointKey=20260406000924) |
+| 3 | 만료된 pointKey | EXPIRE 이벤트가 기록된 만료 포인트 | [20260406000005](http://localhost:8080/admin/points?pointKey=20260406000005) |
+| 4 | 만료 후 재지급 (AUTO_RESTORED) | 만료 후 사용취소로 AUTO_RESTORED 재지급된 pointKey | [20260406000006](http://localhost:8080/admin/points?pointKey=20260406000006) |
+| 5 | 재지급이 여러 번 발생한 rootPointKey | AUTO_RESTORED가 6회 반복된 체인 | [20260406004625](http://localhost:8080/admin/points?rootPointKey=20260406004625) |
+| 6 | 한 포인트를 여러 주문에 나눠 사용 | 적립 1건을 3개 orderNo에 분할 사용 후 일부 취소 | [complex04 포인트 조회](http://localhost:8080/admin/points?userId=complex04) |
 | — | 통계 (2025년 월별) | 월별 집계 통계 | [월별 통계](http://localhost:8080/admin/stats?unit=monthly&startMonth=2025-01&endMonth=2025-12) |
 | — | 사용자 계정 전체 | 전체 사용자 목록 | [사용자 계정](http://localhost:8080/admin/accounts) |
 

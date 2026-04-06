@@ -72,7 +72,7 @@ public class DataInitializer implements ApplicationRunner {
 
     // 복잡한 케이스 전용 유저 목록
     private static final String[] COMPLEX_USER_IDS = {
-        "complex01", "complex02", "complex03"
+        "complex01", "complex02", "complex03", "complex04"
     };
 
     @Override
@@ -127,10 +127,11 @@ public class DataInitializer implements ApplicationRunner {
             }
         }
 
-        // 복잡한 케이스 유저 생성 및 시나리오 실행 (3번 반복)
+        // 복잡한 케이스 유저 생성 및 시나리오 실행
         createComplexUsers();
         LocalDateTime complexBase = LocalDate.of(2026, 1, 1).atTime(10, 0, 0);
-        for (int i = 0; i < COMPLEX_USER_IDS.length; i++) {
+        // complex01~03: AUTO_RESTORED 반복 시나리오
+        for (int i = 0; i < 3; i++) {
             try {
                 totalEvents += runComplexScenario(COMPLEX_USER_IDS[i], complexBase.plusDays(i));
             } catch (Exception e) {
@@ -138,6 +139,14 @@ public class DataInitializer implements ApplicationRunner {
             } finally {
                 DateTimeContext.clear();
             }
+        }
+        // complex04: 한 포인트를 여러 orderNo에 나눠 사용하는 시나리오
+        try {
+            totalEvents += runMultiOrderScenario("complex04", complexBase.plusDays(3));
+        } catch (Exception e) {
+            log.warn("[DataInitializer] complex04 시나리오 실행 중 오류: {}", e.getMessage());
+        } finally {
+            DateTimeContext.clear();
         }
 
         long elapsed = System.currentTimeMillis() - start;
@@ -497,6 +506,45 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     /**
+     * 한 포인트를 여러 orderNo에 나눠 사용하는 시나리오.
+     * 적립 1건(30,000원) → orderNo 3건에 각각 사용 → 일부 취소
+     */
+    private int runMultiOrderScenario(String userId, LocalDateTime base) {
+        int totalEvents = 0;
+
+        // 적립 1건 (30,000원, 365일)
+        setTime(base, 0);
+        String accOrderNo = "ACC-" + userId + "-MULTI";
+        String pk = pointService.accumulate(userId, 30000L, PointSourceType.ACCUMULATION, PointType.FREE, 365, accOrderNo);
+        totalEvents++;
+
+        // 1차 사용 (orderNo-1: 8,000원)
+        setTime(base, 30);
+        String useOrder1 = "USE-" + userId + "-MULTI-1";
+        pointService.use(userId, useOrder1, 8000L);
+        totalEvents++;
+
+        // 2차 사용 (orderNo-2: 10,000원)
+        setTime(base, 60);
+        String useOrder2 = "USE-" + userId + "-MULTI-2";
+        pointService.use(userId, useOrder2, 10000L);
+        totalEvents++;
+
+        // 3차 사용 (orderNo-3: 7,000원)
+        setTime(base, 90);
+        String useOrder3 = "USE-" + userId + "-MULTI-3";
+        pointService.use(userId, useOrder3, 7000L);
+        totalEvents++;
+
+        // 2차 사용 부분 취소 (5,000원)
+        setTime(base, 120);
+        pointService.cancelUsage(useOrder2, 5000L);
+        totalEvents++;
+
+        return totalEvents;
+    }
+
+    /**
      * 포인트를 강제 만료 처리한다.
      */
     @Transactional
@@ -519,7 +567,7 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     private void createComplexUsers() {
-        String[] names = {"복잡케이스1", "복잡케이스2", "복잡케이스3"};
+        String[] names = {"복잡케이스1", "복잡케이스2", "복잡케이스3", "복잡케이스4"};
         for (int i = 0; i < COMPLEX_USER_IDS.length; i++) {
             userAccountRepository.save(UserAccount.builder()
                     .userId(COMPLEX_USER_IDS[i])

@@ -59,6 +59,7 @@
 
         /* 모달 */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; align-items: center; justify-content: center; }
+        #useDetailModal, #cancelDetailModal { z-index: 1100; }
         .modal-overlay.open { display: flex; }
         .modal { background: #fff; border-radius: 12px; width: 90%; max-width: 760px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
         .modal-header { padding: 18px 24px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
@@ -155,6 +156,10 @@
                     <input type="text" name="pointKey" th:value="${pointKey}" placeholder="포인트 키 입력"/>
                 </div>
                 <div class="field">
+                    <label>루트 포인트</label>
+                    <input type="text" name="rootPointKey" th:value="${rootPointKey}" placeholder="루트 포인트 키 입력"/>
+                </div>
+                <div class="field">
                     <label>주문번호(orderNo)</label>
                     <input type="text" name="orderNo" th:value="${orderNo}" placeholder="주문번호 입력"/>
                 </div>
@@ -183,6 +188,7 @@
             <input type="hidden" name="startDate" th:value="${startDate}"/>
             <input type="hidden" name="endDate" th:value="${endDate}"/>
             <input type="hidden" name="pointKey" th:value="${pointKey}"/>
+            <input type="hidden" name="rootPointKey" th:value="${rootPointKey}"/>
             <input type="hidden" name="orderNo" th:value="${orderNo}"/>
             <input type="hidden" name="page" value="0"/>
             <select name="size" onchange="this.form.submit()" style="padding:5px 10px; border:1px solid #d0d7de; border-radius:6px; font-size:0.82rem; background:#fafafa;">
@@ -210,9 +216,9 @@
                 <th class="num">사용 금액</th>
                 <th class="num">사용취소 금액</th>
                 <th class="num">만료금액</th>
-                <th>rootPointKey</th>
-                <th>원천 pointKey</th>
-                <th>재지급 pointKey</th>
+                <th>루트 포인트</th>
+                <th>원천 포인트</th>
+                <th>재지급된 포인트</th>
                 <th>만료일</th>
                 <th>적립일시</th>
             </tr>
@@ -269,19 +275,89 @@
     <!-- 페이지네이션 -->
     <div class="pagination" th:if="${totalPages > 1}">
         <a th:if="${currentPage > 0}"
-           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, orderNo=${orderNo}, page=${currentPage - 1}, size=${pageSize})}">이전</a>
+           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, rootPointKey=${rootPointKey}, orderNo=${orderNo}, page=${currentPage - 1}, size=${pageSize})}">이전</a>
         <span th:if="${currentPage == 0}" class="disabled">이전</span>
 
         <th:block th:each="i : ${#numbers.sequence(startPage, endPage)}">
             <a th:if="${i != currentPage}"
-               th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, orderNo=${orderNo}, page=${i}, size=${pageSize})}"
+               th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, rootPointKey=${rootPointKey}, orderNo=${orderNo}, page=${i}, size=${pageSize})}"
                th:text="${i + 1}"></a>
             <span th:if="${i == currentPage}" class="active" th:text="${i + 1}"></span>
         </th:block>
 
         <a th:if="${currentPage < totalPages - 1}"
-           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, orderNo=${orderNo}, page=${currentPage + 1}, size=${pageSize})}">다음</a>
+           th:href="@{/admin/points(userId=${userId}, status=${status}, type=${type}, sourceType=${sourceType}, startDate=${startDate}, endDate=${endDate}, pointKey=${pointKey}, rootPointKey=${rootPointKey}, orderNo=${orderNo}, page=${currentPage + 1}, size=${pageSize})}">다음</a>
         <span th:if="${currentPage >= totalPages - 1}" class="disabled">다음</span>
+    </div>
+</div>
+
+<!-- 사용 상세 모달 -->
+<div class="modal-overlay" id="useDetailModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="useDetailModalTitle">사용 상세</h2>
+            <button class="modal-close" onclick="closeUseDetailModal()">✕</button>
+        </div>
+        <div class="modal-body">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>포인트 키</th>
+                    <th class="num">사용 금액</th>
+                    <th>사용 일시</th>
+                </tr>
+            </thead>
+            <tbody id="useDetailTableBody">
+                <tr><td colspan="4" class="empty">로딩 중...</td></tr>
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- 취소 상세 모달 -->
+<div class="modal-overlay" id="cancelDetailModal">
+    <div class="modal" style="max-width: 860px;">
+        <div class="modal-header">
+            <h2 id="cancelDetailModalTitle">취소 상세</h2>
+            <button class="modal-close" onclick="closeCancelDetailModal()">✕</button>
+        </div>
+        <div class="modal-body">
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 8px;">▸ 취소 이력 <span style="font-size:0.75rem;color:#999;font-weight:400;">(행을 클릭하면 포인트별 상세가 표시됩니다)</span></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th class="num">취소 금액</th>
+                        <th>취소 일시</th>
+                    </tr>
+                </thead>
+                <tbody id="cancelHistoryTableBody">
+                    <tr><td colspan="3" class="empty">로딩 중...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #555; margin-bottom: 8px;">▸ 포인트별 취소 상세 <span id="cancelDetailSubLabel" style="font-size:0.75rem;color:#999;font-weight:400;"></span></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>구분</th>
+                        <th>포인트 키</th>
+                        <th>만료된 포인트 키</th>
+                        <th class="num">금액</th>
+                        <th>일시</th>
+                    </tr>
+                </thead>
+                <tbody id="cancelPointDetailTableBody">
+                    <tr><td colspan="6" class="empty">취소 이력 행을 클릭하세요.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        </div>
     </div>
 </div>
 
@@ -455,7 +531,7 @@
             return;
         }
         let sum = 0;
-        let html = '<table><thead><tr><th>#</th><th>이벤트 타입</th><th style="text-align:right">금액</th><th>주문번호</th><th>취소 ID</th><th style="text-align:right">취소 금액</th><th>발생일시</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>#</th><th>이벤트 타입</th><th style="text-align:right">금액</th><th>주문번호</th><th style="text-align:right">취소 금액</th><th>발생일시</th></tr></thead><tbody>';
         filtered.forEach((ev, i) => {
             const t = eventTypeLabel[ev.pointEventType] || { label: ev.pointEventType, cls: '' };
             const raw = Number(ev.amount);
@@ -470,12 +546,16 @@
             const cancelId = ev.orderCancelId != null ? ev.orderCancelId : '-';
             const cancelAmt = ev.cancelAmount != null ? Number(ev.cancelAmount).toLocaleString() : '-';
             const dt = ev.regDateTime ? ev.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+            const isUse = ev.pointEventType === 'USE';
+            const isUseCancel = ev.pointEventType === 'USE_CANCEL';
+            const orderCell = (isUse || isUseCancel) && ev.orderId
+                ? `<a href="#" class="order-no-link" data-order-id="${ev.orderId}" data-order-no="${orderNo}" data-event-type="${ev.pointEventType}" style="color:#3b5bdb;text-decoration:none;font-family:monospace;font-size:0.82rem">${orderNo}</a>`
+                : `<code>${orderNo}</code>`;
             html += `<tr>
                 <td style="color:#999;font-size:0.75rem">${i + 1}</td>
                 <td><span class="badge ${t.cls}">${t.label}</span></td>
                 <td style="text-align:right;font-variant-numeric:tabular-nums;color:${color};font-weight:600">${amtStr}</td>
-                <td><code>${orderNo}</code></td>
-                <td style="color:#999;font-size:0.78rem">${cancelId}</td>
+                <td>${orderCell}</td>
                 <td style="text-align:right;font-variant-numeric:tabular-nums;color:#e03131;font-size:0.82rem">${cancelAmt}</td>
                 <td style="color:#555;font-size:0.8rem">${dt}</td>
             </tr>`;
@@ -485,10 +565,130 @@
         html += `</tbody><tfoot><tr style="background:#f4f6f9;font-weight:700">
             <td colspan="2" style="padding:10px 12px;font-size:0.82rem;color:#555">잔여 합계</td>
             <td style="text-align:right;font-variant-numeric:tabular-nums;color:${sumColor};font-size:0.9rem;padding:10px 12px">${sumSign}${sum.toLocaleString()}</td>
-            <td colspan="4"></td>
+            <td colspan="3"></td>
         </tr></tfoot></table>`;
         document.getElementById('modalContent').innerHTML = html;
+
+        // 주문번호 링크 클릭 이벤트 등록
+        document.querySelectorAll('#modalContent .order-no-link').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const orderId = link.dataset.orderId;
+                const orderNo = link.dataset.orderNo;
+                const eventType = link.dataset.eventType;
+                if (eventType === 'USE') {
+                    openUseDetailModal(orderId, orderNo);
+                } else if (eventType === 'USE_CANCEL') {
+                    openCancelDetailModal(orderId, orderNo);
+                }
+            });
+        });
     }
+
+    // 사용 상세 모달
+    function openUseDetailModal(orderId, orderNo) {
+        document.getElementById('useDetailModalTitle').textContent = '사용 상세 — ' + orderNo;
+        document.getElementById('useDetailModal').classList.add('open');
+        document.getElementById('useDetailTableBody').innerHTML = '<tr><td colspan="4" class="empty">로딩 중...</td></tr>';
+
+        fetch('/admin/order-use-details?orderId=' + orderId)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.length) {
+                    document.getElementById('useDetailTableBody').innerHTML = '<tr><td colspan="4" class="empty">사용 내역이 없습니다.</td></tr>';
+                    return;
+                }
+                const rows = data.map((u, i) => {
+                    const dt = u.regDateTime ? u.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+                    return `<tr><td>${i+1}</td><td><code>${u.pointKey || '-'}</code></td><td class="num">${Number(u.amount).toLocaleString()}</td><td>${dt}</td></tr>`;
+                }).join('');
+                document.getElementById('useDetailTableBody').innerHTML = rows;
+            })
+            .catch(() => {
+                document.getElementById('useDetailTableBody').innerHTML = '<tr><td colspan="4" class="empty">오류가 발생했습니다.</td></tr>';
+            });
+    }
+
+    function closeUseDetailModal() {
+        document.getElementById('useDetailModal').classList.remove('open');
+    }
+
+    document.getElementById('useDetailModal').addEventListener('click', function(e) {
+        if (e.target === this) closeUseDetailModal();
+    });
+
+    // 취소 상세 모달
+    let _allCancelPointDetails = [];
+
+    function openCancelDetailModal(orderId, orderNo) {
+        document.getElementById('cancelDetailModalTitle').textContent = '취소 상세 — ' + orderNo;
+        document.getElementById('cancelDetailModal').classList.add('open');
+        document.getElementById('cancelHistoryTableBody').innerHTML = '<tr><td colspan="3" class="empty">로딩 중...</td></tr>';
+        document.getElementById('cancelPointDetailTableBody').innerHTML = '<tr><td colspan="6" class="empty">로딩 중...</td></tr>';
+        document.getElementById('cancelDetailSubLabel').textContent = '';
+        _allCancelPointDetails = [];
+
+        fetch('/admin/order-cancels?orderId=' + orderId)
+            .then(r => r.json())
+            .then(data => {
+                const cancels = data.cancels || [];
+                _allCancelPointDetails = data.pointDetails || [];
+                if (!cancels.length) {
+                    document.getElementById('cancelHistoryTableBody').innerHTML = '<tr><td colspan="3" class="empty">취소 내역이 없습니다.</td></tr>';
+                } else {
+                    const rows = cancels.map((c, i) => {
+                        const dt = c.regDateTime ? c.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+                        return `<tr style="cursor:pointer;" onclick="selectCancelDetailRow(this, ${c.id})"><td>${i+1}</td><td class="num">${Number(c.cancelAmount).toLocaleString()}</td><td>${dt}</td></tr>`;
+                    }).join('');
+                    document.getElementById('cancelHistoryTableBody').innerHTML = rows;
+                }
+                if (cancels.length === 1) {
+                    renderCancelPointDetail(cancels[0].id);
+                    const firstRow = document.querySelector('#cancelHistoryTableBody tr');
+                    if (firstRow) firstRow.style.background = '#e7f5ff';
+                } else if (cancels.length > 1) {
+                    document.getElementById('cancelPointDetailTableBody').innerHTML = '<tr><td colspan="6" class="empty">취소 이력 행을 클릭하세요.</td></tr>';
+                } else {
+                    renderCancelPointDetail(null);
+                }
+            })
+            .catch(() => {
+                document.getElementById('cancelHistoryTableBody').innerHTML = '<tr><td colspan="3" class="empty">오류가 발생했습니다.</td></tr>';
+                document.getElementById('cancelPointDetailTableBody').innerHTML = '<tr><td colspan="6" class="empty">오류가 발생했습니다.</td></tr>';
+            });
+    }
+
+    function renderCancelPointDetail(cancelId) {
+        const filtered = cancelId === null ? _allCancelPointDetails : _allCancelPointDetails.filter(d => d.cancelId == cancelId);
+        const label = document.getElementById('cancelDetailSubLabel');
+        if (!filtered.length) {
+            document.getElementById('cancelPointDetailTableBody').innerHTML = '<tr><td colspan="6" class="empty">포인트 취소 상세가 없습니다.</td></tr>';
+            label.textContent = '';
+        } else {
+            const rows = filtered.map((d, i) => {
+                const dt = d.regDateTime ? d.regDateTime.replace('T', ' ').substring(0, 16) : '-';
+                const typeColor = d.eventType === 'AUTO_RESTORED' ? 'color:#e67700;font-weight:700;' : 'color:#2f9e44;font-weight:700;';
+                const expiredKeyCell = d.expiredPointKey ? `<code style="color:#c92a2a;">${d.expiredPointKey}</code>` : '-';
+                return `<tr><td>${i+1}</td><td style="${typeColor}">${d.eventTypeLabel}</td><td><code>${d.pointKey || '-'}</code></td><td>${expiredKeyCell}</td><td class="num">+${Number(d.amount).toLocaleString()}</td><td>${dt}</td></tr>`;
+            }).join('');
+            document.getElementById('cancelPointDetailTableBody').innerHTML = rows;
+        }
+    }
+
+    function selectCancelDetailRow(row, cancelId) {
+        document.querySelectorAll('#cancelHistoryTableBody tr').forEach(r => r.style.background = '');
+        row.style.background = '#e7f5ff';
+        document.getElementById('cancelDetailSubLabel').textContent = `— 취소 #${cancelId}`;
+        renderCancelPointDetail(cancelId);
+    }
+
+    function closeCancelDetailModal() {
+        document.getElementById('cancelDetailModal').classList.remove('open');
+    }
+
+    document.getElementById('cancelDetailModal').addEventListener('click', function(e) {
+        if (e.target === this) closeCancelDetailModal();
+    });
 
     // 가운데 휠 클릭으로 가로 스크롤
     (function() {

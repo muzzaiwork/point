@@ -76,6 +76,11 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 - **User Name**: `sa`
 - **Password**: (입력 없음)
 
+> 💡 **테스트 데이터 안내**  
+> 애플리케이션 최초 실행 시 `DataInitializer`가 자동으로 테스트 데이터를 삽입합니다.  
+> 다양한 시나리오(단순 적립, 사용·취소, 만료, AUTO_RESTORED 재지급 등)를 포함한 사용자 및 포인트 이력이 미리 구성되어 있어, 실행 직후 Admin UI와 API를 바로 테스트할 수 있습니다.  
+> 데이터는 `data/billing.mv.db` 파일에 영속 저장되므로, 재시작 후에도 유지됩니다.
+
 ---
 
 ## 📐 3. 데이터베이스 및 API 설계
@@ -126,6 +131,31 @@ API 명세의 공통 사항 및 오류 코드 정의입니다.
 ---
 
 #### 1️⃣ 포인트 적립 API
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant UserEntity as User (Entity)
+    participant PointEntity as Point (Entity)
+    participant DB
+
+    Client->>Controller: 포인트 적립 요청 (userId, amount, orderNo, type Enum)
+    Controller->>Service: accumulate()
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Service->>UserEntity: accumulatePoint(amount)
+    Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
+    UserEntity-->>Service: 검증 완료 및 잔액 업데이트
+    Service->>PointEntity: Point 객체 생성 (pointSourceType, rootPointKey 설정)
+    Service->>DB: PointEvent(ACCUMULATE) 저장 & User 업데이트
+    Service-->>Controller: pointKey 반환
+    Controller-->>Client: 포인트 적립 성공 응답
+```
+
+> 📷 [PNG로 보기](docs/images/mermaid/포인트적립_시퀀스.png)
+
 <details>
 <summary>📖 API 명세 상세보기</summary>
 
@@ -189,31 +219,8 @@ API 명세의 공통 사항 및 오류 코드 정의입니다.
 </details>
 
 <details>
-<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 적립</summary>
+<summary>💡 주요 로직 & 정책</summary>
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant UserEntity as User (Entity)
-    participant PointEntity as Point (Entity)
-    participant DB
-
-    Client->>Controller: 포인트 적립 요청 (userId, amount, orderNo, type Enum)
-    Controller->>Service: accumulate()
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    DB-->>Service: User 객체 반환
-    Service->>UserEntity: accumulatePoint(amount)
-    Note over UserEntity: 1회 한도 및<br/>총 보유 한도 검증
-    UserEntity-->>Service: 검증 완료 및 잔액 업데이트
-    Service->>PointEntity: Point 객체 생성 (pointSourceType, rootPointKey 설정)
-    Service->>DB: PointEvent(ACCUMULATE) 저장 & User 업데이트
-    Service-->>Controller: pointKey 반환
-    Controller-->>Client: 포인트 적립 성공 응답
-```
-
-> **💡 주요 로직 & 정책**
 > - 사용자 조회 시 **Pessimistic Lock**을 적용하여 동시 적립 요청에 의한 보유 한도 초과를 방지합니다.
 > - `UserAccount.accumulatePoint()` 내부에서 **1회 적립 한도** 및 **개인 최대 보유 한도**를 검증합니다.
 > - `Point` 엔티티 생성 시 `rootPointKey`는 `doAccumulate()` 내부에서 직접 설정됩니다. `@PostPersist`는 `rootPointKey`가 null인 경우에만 동작하는 fallback입니다.
@@ -249,6 +256,41 @@ sequenceDiagram
 ---
 
 #### 2️⃣ 포인트 적립 취소 API
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant PointEntity as Point (Entity)
+    participant UserAccountEntity as UserAccount (Entity)
+
+    Client->>Controller: 포인트 적립 취소 요청 (pointKey)
+    Controller->>Service: cancelAccumulation(pointKey)
+    Service->>DB: Point 정보 조회
+    DB-->>Service: Point 객체 반환
+    
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: UserAccount 객체 반환
+    
+    Service->>PointEntity: cancel()
+    Note over PointEntity: 1. isCancelled == true → ALREADY_CANCELLED 예외<br/>2. remainingPoint ≠ accumulatedPoint → ALREADY_USED 예외 (부분 사용도 취소 불가)<br/>3. isCancelled = true, remainingPoint = 0 처리
+    PointEntity-->>Service: 상태 업데이트 완료
+
+    Service->>DB: PointEvent(ACCUMULATE_CANCEL) 저장
+    DB-->>Service: 저장 완료
+
+    Service->>UserAccountEntity: cancelAccumulation(amount, type)
+    Note over UserAccountEntity: accumulatedPoint -= amount<br/>remainingPoint -= amount<br/>(유/무료 구분하여 각 필드도 차감)
+    UserAccountEntity-->>Service: 잔액 업데이트 완료
+
+    Service-->>Controller: 포인트 적립 취소 성공 반환
+    Controller-->>Client: 포인트 적립 취소 성공 응답
+```
+
+> 📷 [PNG로 보기](docs/images/mermaid/포인트적립취소_시퀀스.png)
+
 <details>
 <summary>📖 API 명세 상세보기</summary>
 
@@ -293,41 +335,8 @@ sequenceDiagram
 </details>
 
 <details>
-<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 적립 취소</summary>
+<summary>💡 주요 로직 & 정책</summary>
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant DB
-    participant PointEntity as Point (Entity)
-    participant UserAccountEntity as UserAccount (Entity)
-
-    Client->>Controller: 포인트 적립 취소 요청 (pointKey)
-    Controller->>Service: cancelAccumulation(pointKey)
-    Service->>DB: Point 정보 조회
-    DB-->>Service: Point 객체 반환
-    
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    DB-->>Service: UserAccount 객체 반환
-    
-    Service->>PointEntity: cancel()
-    Note over PointEntity: 1. isCancelled == true → ALREADY_CANCELLED 예외<br/>2. remainingPoint ≠ accumulatedPoint → ALREADY_USED 예외 (부분 사용도 취소 불가)<br/>3. isCancelled = true, remainingPoint = 0 처리
-    PointEntity-->>Service: 상태 업데이트 완료
-
-    Service->>DB: PointEvent(ACCUMULATE_CANCEL) 저장
-    DB-->>Service: 저장 완료
-
-    Service->>UserAccountEntity: cancelAccumulation(amount, type)
-    Note over UserAccountEntity: accumulatedPoint -= amount<br/>remainingPoint -= amount<br/>(유/무료 구분하여 각 필드도 차감)
-    UserAccountEntity-->>Service: 잔액 업데이트 완료
-
-    Service-->>Controller: 포인트 적립 취소 성공 반환
-    Controller-->>Client: 포인트 적립 취소 성공 응답
-```
-
-> **💡 주요 로직 & 정책**
 > - `Point.cancel()` 내부에서 `isCancelled == true`이면 **중복 취소 예외**, `remainingPoint != accumulatedPoint`이면 **이미 사용된 포인트 예외**를 발생시킵니다. (부분 사용된 경우도 취소 불가)
 > - 취소 성공 시 `remainingPoint = 0`, `isCancelled = true`로 변경되며 `PointEvent(ACCUMULATE_CANCEL)`이 기록됩니다.
 > - `UserAccount`의 `accumulatedPoint`와 `remainingPoint`가 함께 차감됩니다.
@@ -362,6 +371,38 @@ sequenceDiagram
 ---
 
 #### 3️⃣ 포인트 사용 API
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant UserEntity as User (Entity)
+    participant PointEntity as Point (Entity)
+    participant OrderEntity as Order (Entity)
+    participant EventEntity as PointEvent (Entity)
+
+    Client->>Controller: 포인트 사용 요청 (userId, amount, orderNo)
+    Controller->>Service: use()
+    Service->>DB: 사용자 조회 (Pessimistic Lock)
+    DB-->>Service: User 객체 반환
+    Note over Service: remainingPoint < useAmount → POINT_SHORTAGE 예외
+    Service->>DB: 사용 가능한 포인트 목록 조회 (pointSourceType DESC, expiryDate ASC)
+    Note over DB: MANUAL 타입 우선, 이후 만료 임박 순
+    Service->>OrderEntity: Order 생성 (orderNo 식별자, type=PURCHASE, status=IN_PROGRESS)
+    loop 포인트 사용 금액 소진 시까지
+        Service->>PointEntity: use(subAmount)
+        Service->>DB: Point 저장
+        Service->>UserEntity: usePoint(subAmount, type)
+        Service->>DB: PointEvent(USE) 저장
+    end
+    Service->>DB: Order & User 업데이트
+    Service-->>Controller: 포인트 사용 성공 반환
+```
+
+> 📷 [PNG로 보기](docs/images/mermaid/포인트사용_시퀀스.png)
+
 <details>
 <summary>📖 API 명세 상세보기</summary>
 
@@ -413,38 +454,8 @@ sequenceDiagram
 </details>
 
 <details>
-<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 사용</summary>
+<summary>💡 주요 로직 & 정책</summary>
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant DB
-    participant UserEntity as User (Entity)
-    participant PointEntity as Point (Entity)
-    participant OrderEntity as Order (Entity)
-    participant EventEntity as PointEvent (Entity)
-
-    Client->>Controller: 포인트 사용 요청 (userId, amount, orderNo)
-    Controller->>Service: use()
-    Service->>DB: 사용자 조회 (Pessimistic Lock)
-    DB-->>Service: User 객체 반환
-    Note over Service: remainingPoint < useAmount → POINT_SHORTAGE 예외
-    Service->>DB: 사용 가능한 포인트 목록 조회 (pointSourceType DESC, expiryDate ASC)
-    Note over DB: MANUAL 타입 우선, 이후 만료 임박 순
-    Service->>OrderEntity: Order 생성 (orderNo 식별자, type=PURCHASE, status=IN_PROGRESS)
-    loop 포인트 사용 금액 소진 시까지
-        Service->>PointEntity: use(subAmount)
-        Service->>DB: Point 저장
-        Service->>UserEntity: usePoint(subAmount, type)
-        Service->>DB: PointEvent(USE) 저장
-    end
-    Service->>DB: Order & User 업데이트
-    Service-->>Controller: 포인트 사용 성공 반환
-```
-
-> **💡 주요 로직 & 정책**
 > - 사용 가능한 포인트는 **`MANUAL` 타입 우선, 이후 만료일 임박 순(`expiryDate ASC`)**으로 자동 정렬되어 차감됩니다.
 > - 하나의 사용 건이 여러 적립 건에서 차감될 경우, `PointEvent(USE)`가 적립 건별로 **1원 단위**로 분리 기록됩니다.
 > - `Order` 엔티티는 `orderNo`를 유니크 식별자로 사용하며, 중복 주문 번호 요청 시 예외가 발생합니다.
@@ -487,6 +498,50 @@ sequenceDiagram
 ---
 
 #### 4️⃣ 포인트 사용 취소 API
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller
+    participant Service
+    participant DB
+    participant OrderEntity as Order (Entity)
+    participant PointEntity as Point (Entity)
+    participant UserEntity as UserAccount (Entity)
+
+    Client->>Controller: 포인트 사용 취소 요청 (orderNo, cancelAmount)
+    Controller->>Service: cancelUsage(orderNo, cancelAmount)
+
+    Service->>DB: Order 조회 (orderNo)
+    Service->>DB: UserAccount 조회 (Pessimistic Lock, 동시 취소 방지)
+
+    Service->>OrderEntity: cancel(cancelAmount)
+    Note over OrderEntity: orderedPoint 불변<br/>canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL<br/>부분 취소 시 PARTIAL_CANCEL<br/>초과 취소 시 예외 발생
+
+    Service->>DB: OrderCancel 이력 저장
+
+    Service->>DB: PointEvent(USE) 역순 조회 (LIFO)
+
+    loop 남은 취소 금액 소진 시까지
+        Note over Service: 이미 취소된 금액 제외 후<br/>실제 취소 가능 금액 계산
+
+        alt 유효한 적립 건 (만료 안 됨)
+            Service->>PointEntity: restore(canCancelFromThis)
+            Service->>UserEntity: cancelUsage(canCancelFromThis, type)
+            Service->>DB: PointEvent(USE_CANCEL) 저장
+        else 만료된 적립 건
+            Service->>UserEntity: cancelUsage(canCancelFromThis, type)
+            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointKey/rootPointKey 상속, 만료일=2999-12-31)
+            Service->>DB: PointEvent(EXPIRED_CANCEL_RESTORE) 저장
+        end
+    end
+
+    Service-->>Controller: 취소 완료
+    Controller-->>Client: 사용 취소 성공 응답
+```
+
+> 📷 [PNG로 보기](docs/images/mermaid/포인트사용취소_시퀀스.png)
+
 <details>
 <summary>📖 API 명세 상세보기</summary>
 
@@ -543,50 +598,8 @@ sequenceDiagram
 </details>
 
 <details>
-<summary>🔄 시퀀스 다이어그램 & 주요 로직/정책 — 포인트 사용 취소</summary>
+<summary>💡 주요 로직 & 정책</summary>
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant DB
-    participant OrderEntity as Order (Entity)
-    participant PointEntity as Point (Entity)
-    participant UserEntity as UserAccount (Entity)
-
-    Client->>Controller: 포인트 사용 취소 요청 (orderNo, cancelAmount)
-    Controller->>Service: cancelUsage(orderNo, cancelAmount)
-
-    Service->>DB: Order 조회 (orderNo)
-    Service->>DB: UserAccount 조회 (Pessimistic Lock, 동시 취소 방지)
-
-    Service->>OrderEntity: cancel(cancelAmount)
-    Note over OrderEntity: orderedPoint 불변<br/>canceledPoint 누적<br/>전액 취소 시 TOTAL_CANCEL<br/>부분 취소 시 PARTIAL_CANCEL<br/>초과 취소 시 예외 발생
-
-    Service->>DB: OrderCancel 이력 저장
-
-    Service->>DB: PointEvent(USE) 역순 조회 (LIFO)
-
-    loop 남은 취소 금액 소진 시까지
-        Note over Service: 이미 취소된 금액 제외 후<br/>실제 취소 가능 금액 계산
-
-        alt 유효한 적립 건 (만료 안 됨)
-            Service->>PointEntity: restore(canCancelFromThis)
-            Service->>UserEntity: cancelUsage(canCancelFromThis, type)
-            Service->>DB: PointEvent(USE_CANCEL) 저장
-        else 만료된 적립 건
-            Service->>UserEntity: cancelUsage(canCancelFromThis, type)
-            Service->>DB: 신규 Point 생성 (sourceType=AUTO_RESTORED, originPointKey/rootPointKey 상속, 만료일=2999-12-31)
-            Service->>DB: PointEvent(EXPIRED_CANCEL_RESTORE) 저장
-        end
-    end
-
-    Service-->>Controller: 취소 완료
-    Controller-->>Client: 사용 취소 성공 응답
-```
-
-> **💡 주요 로직 & 정책**
 > - `PointEvent(USE)` 이력을 **역순(LIFO)**으로 조회하여 가장 최근에 사용된 적립 건부터 순서대로 복구합니다.
 > - 복구 대상 적립 건이 **만료된 경우**, 원본 복구 대신 `AUTO_RESTORED` 타입의 신규 포인트를 생성하며 원본의 `rootPointKey`를 상속합니다. 이 경우 `USE_CANCEL` 이벤트는 기록되지 않고 `EXPIRED_CANCEL_RESTORE` 이벤트만 기록됩니다.
 > - `Order.cancel()`에서 `canceledPoint`를 누적하며, 전액 취소 시 `TOTAL_CANCEL`, 부분 취소 시 `PARTIAL_CANCEL` 상태로 변경됩니다.
@@ -766,8 +779,6 @@ Admin UI는 포인트 시스템의 데이터를 조회하고 모니터링할 수
 - **상세 화면 설명 문서**: [📄 Admin 화면 설명 보기](docs/Admin%20화면%20설명.md)
 
 ### 대표 케이스별 바로가기
-
-> 아래 URL은 실제 DB에서 추출한 대표 pointKey / orderNo 기반으로 구성되어 있습니다.
 
 | # | 케이스 | 설명 | URL |
 |---|--------|------|-----|

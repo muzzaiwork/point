@@ -353,7 +353,9 @@ public class PointService {
      */
     private LocalDateTime resolveExpiryDate(Integer expiryDays) {
         if (expiryDays != null) {
-            return LocalDateTime.now().plusDays(expiryDays);
+            LocalDateTime base = org.musinsa.payments.point.config.DateTimeContext.get();
+            LocalDateTime from = (base != null) ? base : LocalDateTime.now();
+            return from.plusDays(expiryDays);
         }
         return LocalDateTime.of(2999, 12, 31, 23, 59, 59);
     }

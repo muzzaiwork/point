@@ -86,8 +86,102 @@ java -jar build/libs/point-0.0.1-SNAPSHOT.jar
 ## 📐 3. 데이터베이스 및 API 설계
 
 ### 3.1 데이터베이스 설계 (ERD)
-상세한 데이터베이스 설계 및 Mermaid 다이어그램은 아래 문서에서 확인할 수 있습니다.
-- [📊 데이터베이스 설계 (ERD) 상세 문서](docs/데이터베이스%20설계.md)
+
+```mermaid
+erDiagram
+    USER_ACCOUNT ||--o{ POINT : "accumulate"
+    USER_ACCOUNT ||--o{ ORDERS : "use"
+    ORDERS ||--o{ ORDER_CANCEL : "cancel"
+    ORDERS ||--o{ POINT_EVENT : "event"
+    POINT ||--o{ POINT_EVENT : "event"
+    ORDER_CANCEL ||--o{ POINT_EVENT : "event"
+
+    USER_ACCOUNT {
+        bigint id PK
+        varchar userId UK
+        varchar name
+        bigint maxAccumulationPoint
+        bigint maxRetentionPoint
+        bigint accumulatedPoint
+        bigint accumulatedPaidPoint
+        bigint accumulatedFreePoint
+        bigint usedPoint
+        bigint usedPaidPoint
+        bigint usedFreePoint
+        bigint remainingPoint
+        bigint remainingPaidPoint
+        bigint remainingFreePoint
+        timestamp regDateTime
+        date regDate
+        timestamp updDateTime
+        date updDate
+    }
+
+    POINT {
+        bigint id PK
+        varchar userId FK
+        varchar pointKey UK
+        varchar orderNo
+        bigint accumulatedPoint
+        bigint remainingPoint
+        bigint usedPoint
+        bigint usedCancelPoint
+        bigint expiredPoint
+        varchar type "FREE | PAID"
+        varchar pointSourceType "ACCUMULATION | MANUAL | AUTO_RESTORED"
+        varchar originPointKey
+        varchar rootPointKey
+        timestamp expiryDateTime
+        date expiryDate
+        boolean isCancelled
+        boolean isExpired
+        timestamp regDateTime
+        date regDate
+        timestamp updDateTime
+        date updDate
+    }
+
+    ORDERS {
+        bigint id PK
+        varchar userId FK
+        varchar orderNo UK
+        bigint orderedPoint
+        bigint canceledPoint
+        varchar type "PURCHASE | PARTIAL_CANCEL | TOTAL_CANCEL"
+        varchar status "IN_PROGRESS | CONFIRMED"
+        timestamp regDateTime
+        date regDate
+        timestamp updDateTime
+        date updDate
+    }
+
+    ORDER_CANCEL {
+        bigint id PK
+        bigint order_id FK
+        bigint cancelAmount
+        timestamp regDateTime
+        date regDate
+        timestamp updDateTime
+        date updDate
+    }
+
+    POINT_EVENT {
+        bigint id PK
+        bigint order_id FK
+        bigint point_id FK
+        bigint order_cancel_id FK
+        varchar pointEventType "ACCUMULATE | ACCUMULATE_CANCEL | USE | USE_CANCEL | EXPIRE | EXPIRED_CANCEL_RESTORE"
+        bigint amount
+        timestamp regDateTime
+        date regDate
+        timestamp updDateTime
+        date updDate
+    }
+```
+
+> 📷 [PNG로 보기](docs/images/mermaid/ERD.png)
+
+상세 컬럼 설명 및 인덱스 정보: [📊 데이터베이스 설계 (ERD) 상세 문서](docs/데이터베이스%20설계.md)
 
 ### 3.2 API 명세
 API 명세의 공통 사항 및 오류 코드 정의입니다.

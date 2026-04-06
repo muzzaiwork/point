@@ -19,12 +19,12 @@ import lombok.*;
  * </ul>
  */
 @Entity
-@Table(name = "point_detail", indexes = {
-        @Index(name = "idx_pd_order_id",              columnList = "order_id"),
-        @Index(name = "idx_pd_point_id", columnList = "point_id"),
-        @Index(name = "idx_pd_order_cancel_id",       columnList = "order_cancel_id"),
-        @Index(name = "idx_pd_reg_date_time",         columnList = "regDateTime"),
-        @Index(name = "idx_pd_reg_date",              columnList = "regDate")
+@Table(name = "point_event", indexes = {
+        @Index(name = "idx_pe_order_id",              columnList = "order_id"),
+        @Index(name = "idx_pe_point_id", columnList = "point_id"),
+        @Index(name = "idx_pe_order_cancel_id",       columnList = "order_cancel_id"),
+        @Index(name = "idx_pe_reg_date_time",         columnList = "regDateTime"),
+        @Index(name = "idx_pe_reg_date",              columnList = "regDate")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

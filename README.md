@@ -333,7 +333,7 @@ sequenceDiagram
 |----|----------|--------|-----------------|----------------|------|-----------------|-------------|-----------|----------------|--------------|---------------|
 | 1 | 20260403000001 | user1 | 1000 | 1000 | FREE | ACCUMULATION | false | false | 2027-04-03T23:59:59 | 20260403000001 | null |
 
-**POINT_DETAIL** (실제 테이블명: `point_detail`)
+**POINT_EVENT** (실제 테이블명: `point_event`)
 
 | id | point_id | order_id | order_cancel_id | pointEventType | amount |
 |----|----------|----------|-----------------|----------------|--------|
@@ -444,11 +444,11 @@ sequenceDiagram
 
 **POINT** (변경)
 
-| id | pointKey | accumulatedPoint | remainingPoint | isCancelled |
-|----|----------|-----------------|----------------|-------------|
-| 1 | 20260403000001 | 1000 | ~~1000~~ → **0** | ~~false~~ → **true** |
+| id | pointKey | userId | accumulatedPoint | remainingPoint | type | pointSourceType | isCancelled | isExpired | expiryDateTime | rootPointKey | originPointKey |
+|----|----------|--------|-----------------|----------------|------|-----------------|-------------|-----------|----------------|--------------|---------------|
+| 1 | 20260403000001 | user1 | 1000 | ~~1000~~ → **0** | FREE | ACCUMULATION | ~~false~~ → **true** | false | 2027-04-03T23:59:59 | 20260403000001 | null |
 
-**POINT_DETAIL** (실제 테이블명: `point_detail`, 기존 + 신규 추가)
+**POINT_EVENT** (실제 테이블명: `point_event`, 기존 + 신규 추가)
 
 | id | point_id | order_id | order_cancel_id | pointEventType | amount |
 |----|----------|----------|-----------------|----------------|--------|
@@ -575,7 +575,7 @@ sequenceDiagram
 |----|---------|--------|-------------|---------------|------|--------|
 | 1 | A1234 | user1 | 1500 | 0 | PURCHASE | IN_PROGRESS |
 
-**POINT_DETAIL** (실제 테이블명: `point_detail`, 신규 추가)
+**POINT_EVENT** (실제 테이블명: `point_event`, 신규 추가)
 
 | id | point_id | order_id | order_cancel_id | pointEventType | amount |
 |----|----------|----------|-----------------|----------------|--------|
@@ -721,7 +721,7 @@ sequenceDiagram
 |----|----------|----------------|-----------|
 | 2 | 20260403000002 | ~~300~~ → **800** | false |
 
-**POINT_DETAIL** (실제 테이블명: `point_detail`, 신규 추가 — 기존 USE 이벤트 포함)
+**POINT_EVENT** (실제 테이블명: `point_event`, 신규 추가 — 기존 USE 이벤트 포함)
 
 | id | point_id | order_id | order_cancel_id | pointEventType | amount |
 |----|----------|----------|-----------------|----------------|--------|
@@ -759,12 +759,17 @@ sequenceDiagram
 | 1 | 20260403000001 | ~~0~~ → **1000** | false |
 | 2 | 20260403000002 | 800 | false |
 
-**POINT_DETAIL** (실제 테이블명: `point_detail`, 신규 추가)
+**POINT_EVENT** (실제 테이블명: `point_event`, 신규 추가)
 
 | id | point_id | order_id | order_cancel_id | pointEventType | amount |
 |----|----------|----------|-----------------|----------------|--------|
-| 6 | 2 | 1 | 1 | USE_CANCEL | 300 |
-| 7 | 1 | 1 | 1 | USE_CANCEL | 700 |
+| 6 | 1 | 1 | **2** | USE_CANCEL | 1000 |
+
+**ORDER_CANCEL** (신규 추가)
+
+| id | orderId | cancelAmount | regDateTime |
+|----|---------|-------------|-------------|
+| 2 | 1 | 1000 | 2026-04-03T10:10:00 |
 
 **USER_ACCOUNT** (변경)
 
@@ -783,11 +788,11 @@ sequenceDiagram
 |----|----------|----------------|-----------------|----------------|--------------|------------|
 | 5 | 20260403000005 | 300 | AUTO_RESTORED | (원본 pointKey) | (원본 rootPointKey) | 2999-12-31 |
 
-**POINT_DETAIL** (실제 테이블명: `point_detail`, 신규 추가)
+**POINT_EVENT** (실제 테이블명: `point_event`, 신규 추가)
 
 | id | point_id | order_id | order_cancel_id | pointEventType | amount |
 |----|----------|----------|-----------------|----------------|--------|
-| 8 | 5 | null | 2 | EXPIRED_CANCEL_RESTORE | 300 |
+| 8 | 5 | null | 1 | EXPIRED_CANCEL_RESTORE | 300 |
 
 > 💡 만료된 포인트 취소 시 원본 Point는 변경되지 않으며, `AUTO_RESTORED` 타입의 신규 Point가 생성됩니다.  
 > 만료 건은 `USE_CANCEL` 이벤트를 기록하지 않고 신규 Point에 `EXPIRED_CANCEL_RESTORE` 이벤트만 기록됩니다.  
